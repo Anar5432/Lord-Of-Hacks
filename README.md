@@ -20,9 +20,10 @@ Link to AI Log: [AI Development Diary (AI_DIARY.md)](./AI_DIARY.md)
 ## 🎮 How to Play
 
 ### Controls
-*   **A / D** or **Left / Right Arrow**: Walk Left / Right
+*   **A / D** or **Arrow Left / Right**: Walk Left / Right
 *   **W** or **Spacebar**: Jump
-*   **J** or **X**: Shoot (attack style changes based on character class)
+*   **J** or **X**: Melee Attack (Sting sword swing — strong knockback)
+*   **K** or **C**: Ranged Attack (underhand rock throw — parabolic arc)
 
 ### Objective
 Navigate through 4 hazardous levels to conquer the darkness in Middle-earth:
@@ -42,13 +43,13 @@ Reach the golden flag at the rightmost boundary of each level to transition and 
 
 ## ⚔️ Game Entities
 
-| Entity | Type | Description | Representation |
+| Entity | Type | Description | Rendered Via |
 | :--- | :--- | :--- | :--- |
-| **Player** | Dynamic | The active hero (Hobbit, Ranger, or Wizard) controlled by the player. | Animated character sprite div |
-| **Platform** | Static | Solid terrain (forest turf, cave rock, obsidian) players and enemies stand on. | Styled terrain block div |
-| **Enemy** | Dynamic | Hazards (Evil Trees, Orcs, Smaug, Eye of Sauron) that patrol or shoot. | Animated enemy sprite div |
-| **Projectile** | Dynamic | Arrows, magic blasts, or enemy fireballs traveling through the air. | Small glowing orb or arrow div |
-| **Collectible** | Static | Coins and the Arkenstone gem that players pick up for score and shop currency. | Rotating gold coin or sparkling gem div |
+| **Player** | Dynamic | The active hero (Hobbit, Ranger, or Wizard) controlled by the player. | Canvas 2D — pixel-art drawn per frame |
+| **Platform** | Static | Solid terrain (forest turf, cave rock, obsidian) players and enemies stand on. | Canvas 2D — themed rect fills per level |
+| **Enemy** | Dynamic | Hazards (Evil Trees, Orcs, Smaug, Eye of Sauron) that patrol or shoot. | Canvas 2D — pixel-art drawn per frame |
+| **Projectile** | Dynamic | Sting sword slash arc, underhand rocks, or enemy fireballs. | Canvas 2D — arc and circle primitives |
+| **Collectible** | Static | Coins and the Arkenstone gem picked up for score and shop currency. | Canvas 2D — animated circle fills |
 
 ---
 
@@ -56,13 +57,31 @@ Reach the golden flag at the rightmost boundary of each level to transition and 
 
 ### 1. Object-Oriented Programming (OOP)
 The engine is structured entirely around standard ES6 classes:
-*   **Reasoning**: An OOP design scales perfectly for games. By encapsulating state (e.g., coordinates, health, velocities) and behavior (e.g., movement, physics updates, collision resolution) into specific classes (`Player`, `Enemy`, `Platform`), the codebase remains highly modular, organized, and extensible.
-*   **Base Class Inheritance**: A parent `Entity` class coordinates core DOM positioning and dimension attributes, allowing specific subclasses to inherit standard mechanics while defining unique update cycles.
+*   **Reasoning**: Games naturally map to objects — each entity (Player, Enemy, Platform) encapsulates its own position, velocity, health, and behavior. A base `Entity` class shares physics data (x, y, vx, vy, width, height) and each subclass overrides its own `draw()` and `update()` logic.
+*   **Character State Machine**: The `Player` class tracks an active state string (`'idle'`, `'run'`, `'jump'`, `'attack-melee'`, `'attack-ranged'`, `'death'`) that drives which animation frame is drawn each tick.
 
-### 2. Pure DOM Manipulation (No Canvas API)
-Rather than rendering pixels on a 2D canvas, the game is built entirely using HTML5 DOM manipulation:
-*   **Reasoning**: This conforms to learning DOM operations by dynamically generating, updating, and removing standard `div` tags.
-*   **Performance Optimization**: To maintain a buttery smooth 60 FPS, the engine uses CSS `transform: translate3d(x, y, 0)` instead of updating layout properties like `left` or `top`. This leverages the GPU for compositing, eliminating layout thrashing and reflows.
+### 2. Canvas API for Game Rendering (Hybrid Architecture)
+The game uses a **hybrid rendering model** allowed by the project rules:
+*   **Canvas 2D** (`<canvas>` + `ctx.getContext('2d')`) renders everything inside the game world: the Hobbit, platforms, enemies, collectibles, backgrounds, and visual effects. This enables real pixel-art drawing, smooth animation, and proper sprite states.
+*   **HTML + CSS** renders all UI outside the game world: the start screen, character shop, HUD health bar, game-over screen, and victory screen.
+*   **Why Canvas for gameplay**: CSS-div entities cannot draw pixel-art shapes cleanly. Canvas `ctx.fillRect`, `ctx.arc`, `ctx.drawImage`, and `ctx.shadowBlur` provide full pixel-level rendering control matching the retro pixel-art design brief.
+
+### 3. Project File Structure
+```
+LordOfHacks/
+│
+├── index.html        # App shell: canvas element + HTML UI screens
+├── style.css         # UI styling only (menus, HUD, overlays — no frameworks)
+├── README.md         # This file
+├── AI_DIARY.md       # AI tool usage and failure log
+├── instruction.md    # Course checklist
+│
+└── js/
+    ├── main.js       # Screen transitions, shop logic, localStorage state
+    ├── game.js       # Game loop, Canvas renderer, camera, collision engine
+    ├── entities.js   # OOP Entity classes with draw(ctx, cameraX) methods
+    └── levels.js     # Level data: platforms, enemies, collectibles, flags
+```
 
 ---
 
