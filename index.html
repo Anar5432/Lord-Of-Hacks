@@ -56,9 +56,9 @@
             <button id="start-button" class="btn btn-primary btn-large">JOURNEY FORTH</button>
         </div>
 
-        <!-- Gameplay HUD & Viewport -->
+        <!-- Gameplay HUD & Canvas Viewport -->
         <div id="game-container" class="hidden">
-            <!-- HUD -->
+            <!-- HUD (HTML overlay, above canvas) -->
             <div id="hud">
                 <div class="hud-item health-container">
                     <span class="hud-label">HP:</span>
@@ -78,13 +78,8 @@
                 </div>
             </div>
 
-            <!-- Viewport Window -->
-            <div id="game-viewport">
-                <!-- Moving World -->
-                <div id="game-world">
-                    <!-- Platforms, Enemies, Collectibles, Player dynamically spawned here -->
-                </div>
-            </div>
+            <!-- Game Canvas (Canvas API renders all gameplay here) -->
+            <canvas id="game-canvas" width="800" height="470"></canvas>
         </div>
 
         <!-- Game Over Overlay -->

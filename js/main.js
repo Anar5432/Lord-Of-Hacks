@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const statusLabel = card.querySelector('.char-status');
             if (statusLabel) statusLabel.textContent = "Selected";
             
-            game.selectedCharacter = char;
+            game.selectedChar = char;
             saveState();
             updateShopCardsUI();
         });
@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const state = {
             coins: game.coins,
             hasArkenstone: game.hasArkenstone,
-            currentCharacter: game.selectedCharacter,
+            currentCharacter: game.selectedChar,
             unlockedCharacters: getUnlockedCharactersList()
         };
         localStorage.setItem('lotr_game_state', JSON.stringify(state));
@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const state = JSON.parse(rawState);
             game.coins = state.coins || 0;
             game.hasArkenstone = state.hasArkenstone || false;
-            game.selectedCharacter = state.currentCharacter || 'Hobbit';
+            game.selectedChar = state.currentCharacter || 'Hobbit';
             
             // Mark unlocked characters
             const unlockedList = state.unlockedCharacters || ['Hobbit'];
@@ -164,9 +164,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     card.classList.remove('locked');
                     const statusLabel = card.querySelector('.char-status');
                     if (statusLabel) {
-                        statusLabel.textContent = (charName === game.selectedCharacter) ? "Selected" : "Unlocked";
+                        statusLabel.textContent = (charName === game.selectedChar) ? "Selected" : "Unlocked";
                     }
-                    if (charName === game.selectedCharacter) {
+                    if (charName === game.selectedChar) {
                         charCards.forEach(c => c.classList.remove('active'));
                         card.classList.add('active');
                     }
@@ -198,7 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const cost = card.getAttribute('data-cost');
                 const reqArkenstone = card.getAttribute('data-require-arkenstone') === 'true';
                 statusLabel.textContent = `🔒 ${cost} Coins${reqArkenstone ? " + 💎" : ""}`;
-            } else if (char !== game.selectedCharacter) {
+            } else if (char !== game.selectedChar) {
                 statusLabel.textContent = "Unlocked";
             } else {
                 statusLabel.textContent = "Selected";
@@ -207,14 +207,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateLevelSelectorUI() {
-        const unlockedLevels = JSON.parse(localStorage.getItem('unlockedLevels')) || [1];
+        const unlockedLevels = JSON.parse(localStorage.getItem('lotr_unlocked')) || [1];
         levelBtns.forEach(btn => {
             const lvl = parseInt(btn.getAttribute('data-level'));
             if (unlockedLevels.includes(lvl)) {
                 btn.classList.remove('locked');
                 btn.removeAttribute('disabled');
-                
-                // Keep the active class aligned with selected level
                 if (lvl === game.currentLevel) {
                     levelBtns.forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
