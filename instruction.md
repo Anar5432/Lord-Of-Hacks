@@ -61,7 +61,7 @@ Planning phase (10 points)
 
 [x] ⭐ Create the directory on your machine with initial files (HTML, CSS, JS)
 
-[ ] ⭐ Create the repo and push an initial commit (share the repo in slack)
+[x] ⭐ Create the repo and push an initial commit (share the repo in slack)
 
 [x] ⭐ Write README.md and start AI_DIARY.md
 

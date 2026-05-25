@@ -155,7 +155,7 @@ class Game {
     update() {
         if (!this.player) return;
 
-        // 1. Process player horizontal movement
+        // 1. Horizontal Movement & Collision Resolution
         const speed = 4;
         if (this.keys.left) {
             this.player.vx = -speed;
@@ -166,41 +166,59 @@ class Game {
         }
         
         this.player.x += this.player.vx;
+        this.resolveHorizontalCollisions();
 
-        // 2. Process vertical movement and gravity
+        // 2. Vertical Movement, Gravity & Collision Resolution
         this.player.vy += this.gravity;
         this.player.y += this.player.vy;
+        this.resolveVerticalCollisions();
 
         // 3. Keep player inside left boundary
         if (this.player.x < 0) this.player.x = 0;
 
-        // 4. Resolve platform collisions (simple standing/bounding box)
-        this.resolveCollisions();
-
-        // 5. Update enemies patrol AI
+        // 4. Update enemies patrol AI
         this.enemies.forEach(enemy => enemy.update());
 
-        // 6. Check other collisions (collectibles, hazards, flag)
+        // 5. Check other interactions (collectibles, hazards, flag)
         this.checkInteractions();
 
-        // 7. Render entities in DOM
+        // 6. Render player in DOM
         this.player.updateDOM();
 
-        // 8. Dynamic Camera Scroll
+        // 7. Dynamic Camera Scroll
         this.updateCamera();
     }
 
-    resolveCollisions() {
-        this.player.isGrounded = false;
-        
-        // Simple bottom collision resolution for now
+    resolveHorizontalCollisions() {
         this.platforms.forEach(platform => {
             if (this.checkAABB(this.player, platform)) {
-                // If player is falling onto the top of the platform
-                if (this.player.vy <= 0 && (this.player.y - this.player.vy) >= (platform.y + platform.height - 2)) {
+                // If player is moving right into a platform
+                if (this.player.vx > 0) {
+                    this.player.x = platform.x - this.player.width;
+                }
+                // If player is moving left into a platform
+                else if (this.player.vx < 0) {
+                    this.player.x = platform.x + platform.width;
+                }
+            }
+        });
+    }
+
+    resolveVerticalCollisions() {
+        this.player.isGrounded = false;
+        
+        this.platforms.forEach(platform => {
+            if (this.checkAABB(this.player, platform)) {
+                // Falling onto the top of the platform
+                if (this.player.vy < 0) {
                     this.player.y = platform.y + platform.height;
                     this.player.vy = 0;
                     this.player.isGrounded = true;
+                }
+                // Hitting the bottom of the platform (ceiling head-bonk)
+                else if (this.player.vy > 0) {
+                    this.player.y = platform.y - this.player.height;
+                    this.player.vy = 0;
                 }
             }
         });
