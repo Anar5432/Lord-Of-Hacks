@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lord of the Hacks - 2D Retro Platformer</title>
+    <!-- Modern Retro Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app-container">
+        <!-- Start Screen -->
+        <div id="start-screen" class="overlay-screen active">
+            <h1 class="game-title">LORD OF THE HACKS</h1>
+            <p class="game-subtitle">A Middle-earth 2D Platformer Adventure</p>
+            
+            <!-- Character Selection / Shop -->
+            <div class="character-select-container">
+                <h3>Select Your Hero</h3>
+                <div class="character-cards">
+                    <div class="char-card active" data-char="Hobbit">
+                        <div class="char-sprite hobbit-sprite"></div>
+                        <div class="char-name">Hobbit</div>
+                        <div class="char-info">Weak Attack | Low Health</div>
+                        <div class="char-status">Selected</div>
+                    </div>
+                    <div class="char-card locked" data-char="Ranger" data-cost="50">
+                        <div class="char-sprite ranger-sprite"></div>
+                        <div class="char-name">Ranger</div>
+                        <div class="char-info">Stronger Bow | Medium Health</div>
+                        <div class="char-status">🔒 50 Coins</div>
+                    </div>
+                    <div class="char-card locked" data-char="Wizard" data-cost="100" data-require-arkenstone="true">
+                        <div class="char-sprite wizard-sprite"></div>
+                        <div class="char-name">Wizard</div>
+                        <div class="char-info">Magic Blasts | High Health</div>
+                        <div class="char-status">🔒 100 Coins + 💎</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Level Selector -->
+            <div class="level-select-container">
+                <h3>Select Journey</h3>
+                <div class="level-buttons">
+                    <button class="btn level-btn active" data-level="1">1. Old Forest</button>
+                    <button class="btn level-btn locked" data-level="2" disabled>2. Dark Mines 🔒</button>
+                    <button class="btn level-btn locked" data-level="3" disabled>3. Lonely Mountain 🔒</button>
+                    <button class="btn level-btn locked" data-level="4" disabled>4. Mordor 🔒</button>
+                </div>
+            </div>
+
+            <button id="start-button" class="btn btn-primary btn-large">JOURNEY FORTH</button>
+        </div>
+
+        <!-- Gameplay HUD & Viewport -->
+        <div id="game-container" class="hidden">
+            <!-- HUD -->
+            <div id="hud">
+                <div class="hud-item health-container">
+                    <span class="hud-label">HP:</span>
+                    <div class="health-bar"><div id="health-fill" style="width: 100%;"></div></div>
+                </div>
+                <div class="hud-item">
+                    <span class="hud-label">COINS:</span>
+                    <span id="hud-coins" class="hud-value">0</span>
+                </div>
+                <div class="hud-item">
+                    <span class="hud-label">GEMS:</span>
+                    <span id="hud-gems" class="hud-value">-</span>
+                </div>
+                <div class="hud-item">
+                    <span class="hud-label">LEVEL:</span>
+                    <span id="hud-level" class="hud-value">1</span>
+                </div>
+            </div>
+
+            <!-- Viewport Window -->
+            <div id="game-viewport">
+                <!-- Moving World -->
+                <div id="game-world">
+                    <!-- Platforms, Enemies, Collectibles, Player dynamically spawned here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Over Overlay -->
+        <div id="game-over-screen" class="overlay-screen hidden">
+            <h2 class="screen-title danger-text">DEFEATED IN BATTLE</h2>
+            <p>The shadows have overtaken Middle-earth...</p>
+            <div class="stats-summary">
+                <p>Coins Gathered: <span id="summary-coins">0</span></p>
+                <p>High Score: <span id="summary-high-score">0</span></p>
+            </div>
+            <button id="retry-button" class="btn btn-primary">RETRY LEVEL</button>
+            <button id="menu-button" class="btn btn-secondary">MAIN MENU</button>
+        </div>
+
+        <!-- Level Complete / Victory Screen -->
+        <div id="victory-screen" class="overlay-screen hidden">
+            <h2 class="screen-title success-text">VICTORY</h2>
+            <p id="victory-message">Level completed successfully!</p>
+            <div class="stats-summary">
+                <p>Total Coins: <span id="victory-coins">0</span></p>
+            </div>
+            <button id="next-level-button" class="btn btn-primary">CONTINUE JOURNEY</button>
+            <button id="victory-menu-button" class="btn btn-secondary">MAIN MENU</button>
+        </div>
+
+        <!-- Level Fade Transition Overlay -->
+        <div id="fade-overlay"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/levels.js"></script>
+    <script src="js/entities.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,484 @@
+/* ==========================================================================
+   Lord of the Hacks - CSS Game Stylesheet
+   ========================================================================== */
+
+/* Design Tokens & Theme Variables */
+:root {
+    --bg-main: #0B0914; /* Deep dark void */
+    --panel-bg: rgba(22, 19, 39, 0.85); /* Sleek glassmorphism */
+    --panel-border: #3A3266;
+    
+    /* Typography Fonts */
+    --font-retro: 'Press Start 2P', monospace;
+    --font-sans: 'Outfit', sans-serif;
+    
+    /* Harmonious Color Palette */
+    --gold: #FFC857;
+    --gold-glow: rgba(255, 200, 87, 0.4);
+    --gold-dark: #B58410;
+    
+    --green: #4EFE84;
+    --green-glow: rgba(78, 254, 132, 0.3);
+    
+    --red: #FF4A4A;
+    --red-glow: rgba(255, 74, 74, 0.3);
+    
+    --cyan: #4EE4FE;
+    --purple: #8B5CF6;
+    
+    --text-light: #E2E8F0;
+    --text-muted: #94A3B8;
+}
+
+/* Base resets & box model */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-light);
+    font-family: var(--font-sans);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+/* App Wrapper */
+#app-container {
+    position: relative;
+    width: 840px;
+    height: 600px;
+    background: linear-gradient(135deg, #100C24 0%, #06040E 100%);
+    border: 4px solid var(--panel-border);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(58, 50, 102, 0.2);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+/* Typography styles */
+.game-title {
+    font-family: var(--font-retro);
+    font-size: 2rem;
+    color: var(--gold);
+    text-shadow: 0 4px 0 var(--gold-dark), 0 0 15px var(--gold-glow);
+    text-align: center;
+    margin-bottom: 8px;
+    letter-spacing: 2px;
+    animation: pulseGlow 2.5s infinite alternate ease-in-out;
+}
+
+.game-subtitle {
+    font-family: var(--font-sans);
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    font-weight: 400;
+    margin-bottom: 24px;
+    letter-spacing: 1px;
+}
+
+/* Overlay Screens (Start, Game Over, Victory) */
+.overlay-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(9, 7, 18, 0.95);
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 30px;
+    transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+
+.overlay-screen.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* UI Elements & Buttons */
+.btn {
+    font-family: var(--font-retro);
+    font-size: 0.8rem;
+    padding: 12px 24px;
+    border: 3px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+}
+
+.btn-primary {
+    background-color: var(--gold);
+    color: #100C24;
+    border-color: var(--gold-dark);
+    box-shadow: 0 4px 0 var(--gold-dark);
+}
+
+.btn-primary:hover {
+    background-color: #FFE066;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 0 var(--gold-dark), 0 0 15px var(--gold-glow);
+}
+
+.btn-primary:active {
+    transform: translateY(2px);
+    box-shadow: 0 0px 0 var(--gold-dark);
+}
+
+.btn-secondary {
+    background-color: #2D2755;
+    color: var(--text-light);
+    border-color: #4A3F85;
+    box-shadow: 0 4px 0 #1B1838;
+}
+
+.btn-secondary:hover {
+    background-color: #38316A;
+    transform: translateY(-2px);
+}
+
+.btn-large {
+    font-size: 1.1rem;
+    padding: 16px 36px;
+}
+
+/* Character Selection Shop */
+.character-select-container {
+    width: 100%;
+    max-width: 720px;
+    margin-bottom: 24px;
+}
+
+.character-select-container h3, 
+.level-select-container h3 {
+    font-family: var(--font-retro);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.character-cards {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+}
+
+.char-card {
+    flex: 1;
+    background: var(--panel-bg);
+    border: 2px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.char-card:hover {
+    border-color: #5D52A0;
+    transform: translateY(-3px);
+}
+
+.char-card.active {
+    border-color: var(--gold);
+    box-shadow: 0 0 15px var(--gold-glow);
+    background: rgba(35, 30, 60, 0.9);
+}
+
+.char-card.locked {
+    opacity: 0.65;
+    background: rgba(12, 10, 20, 0.9);
+}
+
+.char-card.locked:hover {
+    opacity: 0.9;
+}
+
+.char-sprite {
+    width: 48px;
+    height: 48px;
+    background-color: #2E2850;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    position: relative;
+}
+
+/* Sprites placeholders */
+.hobbit-sprite::after { content: '🧝'; font-size: 24px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+.ranger-sprite::after { content: '🏹'; font-size: 24px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+.wizard-sprite::after { content: '🧙'; font-size: 24px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+
+.char-name {
+    font-family: var(--font-retro);
+    font-size: 0.7rem;
+    margin-bottom: 6px;
+}
+
+.char-info {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-align: center;
+    margin-bottom: 8px;
+    line-height: 1.2;
+}
+
+.char-status {
+    font-family: var(--font-retro);
+    font-size: 0.55rem;
+    color: var(--gold);
+    margin-top: auto;
+}
+
+.char-card.active .char-status {
+    color: var(--green);
+}
+
+/* Level Selection Buttons */
+.level-select-container {
+    margin-bottom: 24px;
+}
+
+.level-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.level-btn {
+    font-size: 0.6rem;
+    padding: 8px 12px;
+    background: #1B1736;
+    border: 2px solid var(--panel-border);
+    color: var(--text-light);
+    box-shadow: none;
+}
+
+.level-btn.active {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    box-shadow: 0 0 10px rgba(78, 228, 254, 0.2);
+}
+
+.level-btn.locked {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Gameplay Viewport Container */
+#game-container {
+    width: 800px;
+    height: 520px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#game-container.hidden {
+    display: none;
+}
+
+/* Heads Up Display (HUD) */
+#hud {
+    height: 50px;
+    background-color: #120E2C;
+    border-bottom: 3px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 20px;
+    z-index: 10;
+}
+
+.hud-item {
+    display: flex;
+    align-items: center;
+    font-family: var(--font-retro);
+    font-size: 0.7rem;
+}
+
+.hud-label {
+    color: var(--text-muted);
+    margin-right: 6px;
+}
+
+.hud-value {
+    color: var(--gold);
+}
+
+.health-container {
+    display: flex;
+    align-items: center;
+    width: 200px;
+}
+
+.health-bar {
+    width: 140px;
+    height: 12px;
+    background-color: #221A46;
+    border: 2px solid var(--panel-border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+#health-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--red) 0%, #FF7F7F 100%);
+    box-shadow: 0 0 8px var(--red-glow);
+    transition: width 0.2s ease;
+}
+
+/* Game World Window */
+#game-viewport {
+    position: relative;
+    width: 800px;
+    height: 470px;
+    background: linear-gradient(180deg, #1C133A 0%, #0D0820 100%);
+    overflow: hidden;
+}
+
+#game-world {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 5000px; /* Arbitrary wide world size (defined in levels) */
+    height: 100%;
+}
+
+/* Dynamic Entities Styles */
+.entity {
+    position: absolute;
+    will-change: transform;
+}
+
+/* Player styles */
+.player-entity {
+    background-color: var(--cyan);
+    border-radius: 4px;
+    box-shadow: 0 0 10px rgba(78, 228, 254, 0.4);
+    /* In actual gameplay, this will render sprite animations */
+}
+
+/* Platform styles */
+.platform-entity {
+    background-color: #43377E;
+    border: 2px solid #5A4C9C;
+    box-shadow: inset 0 4px 0 rgba(255,255,255,0.1);
+}
+
+/* Enemy styles */
+.enemy-entity {
+    background-color: var(--red);
+    border-radius: 4px;
+}
+
+/* Projectile styles */
+.projectile-entity {
+    background-color: var(--gold);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--gold-glow);
+}
+
+/* Collectible styles */
+.collectible-entity {
+    background-color: var(--gold);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--gold-glow);
+    animation: floatAnim 1.5s infinite alternate ease-in-out;
+}
+
+.collectible-entity.gem {
+    background-color: var(--cyan);
+    border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+    box-shadow: 0 0 10px rgba(78, 228, 254, 0.6);
+}
+
+/* Level Completion Flag */
+.flag-entity {
+    background-color: var(--green);
+    border-left: 4px solid #fff;
+}
+
+/* Stats Summary */
+.stats-summary {
+    background: rgba(22, 19, 39, 0.6);
+    border: 2px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 16px 30px;
+    margin: 20px 0;
+    font-family: var(--font-retro);
+    font-size: 0.75rem;
+    text-align: center;
+    line-height: 1.8;
+}
+
+.stats-summary span {
+    color: var(--gold);
+}
+
+.danger-text {
+    color: var(--red);
+    text-shadow: 0 0 10px var(--red-glow);
+}
+
+.success-text {
+    color: var(--green);
+    text-shadow: 0 0 10px var(--green-glow);
+}
+
+/* Cinematic Level Fade Overlay */
+#fade-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #000;
+    opacity: 0;
+    z-index: 30;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+}
+
+#fade-overlay.fade-active {
+    opacity: 1;
+}
+
+/* Keyframes & Animations */
+@keyframes pulseGlow {
+    from {
+        text-shadow: 0 4px 0 var(--gold-dark), 0 0 10px var(--gold-glow);
+    }
+    to {
+        text-shadow: 0 4px 0 var(--gold-dark), 0 0 25px rgba(255, 200, 87, 0.7);
+    }
+}
+
+@keyframes floatAnim {
+    from {
+        transform: translateY(0);
+    }
+    to {
+        transform: translateY(-6px);
+    }
+}
