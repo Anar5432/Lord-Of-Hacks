@@ -68,9 +68,9 @@ Planning phase (10 points)
 [ ] ⭐ Deploy to GitHub Pages
 
 Movement/Interaction phase (35 points)
-[ ] 🥇 Get one entity moving on screen (keyboard or mouse)
+[x] 🥇 Get one entity moving on screen (keyboard or mouse)
 
-[ ] 🏆 Mandatory Commit: "feat: player movement"
+[x] 🏆 Mandatory Commit: "feat: player movement"
 
 [ ] ⭐ Add a second entity (enemy, obstacle, collectible...)
 

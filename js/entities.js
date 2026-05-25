@@ -58,6 +58,11 @@ class Player extends Entity {
         this.vy = 0;
         this.isGrounded = false;
         
+        // Add visual class for the selected character sprite
+        if (this.element) {
+            this.element.classList.add(`player-${charType.toLowerCase()}`);
+        }
+        
         // Stats based on character levels
         this.setupStats();
     }

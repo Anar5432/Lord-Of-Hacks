@@ -82,7 +82,7 @@ class Game {
         
         // Load platforms
         config.platforms.forEach(p => {
-            const platform = new Platform(p.x, p.y, p.width, p.height);
+            const platform = new Platform(p.x, p.y, p.width, p.height, config.theme);
             this.platforms.push(platform);
             this.worldElement.appendChild(platform.element);
         });
