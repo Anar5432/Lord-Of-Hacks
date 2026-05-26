@@ -132,13 +132,11 @@ class Player extends Entity {
         const t  = Date.now();
         const VW = 48, VH = 72;
 
-        // Anchor: bottom of visual aligns with bottom of physics hitbox
-        const ox = sx - (VW - this.width)  / 2;  // center horizontally
-        const oy = sy - (VH - this.height);       // bottom-aligned
+        const ox = sx - (VW - this.width)  / 2;
+        const oy = sy - (VH - this.height);
 
         ctx.save();
 
-        // --- Directional flip ---
         if (this.direction === -1) {
             ctx.translate(ox + VW, oy);
             ctx.scale(-1, 1);
@@ -146,7 +144,6 @@ class Player extends Entity {
             ctx.translate(ox, oy);
         }
 
-        // --- Death pose: rotate 90° and fade ---
         if (this.state === 'death') {
             ctx.globalAlpha = 0.55;
             ctx.translate(VW / 2, VH * 0.62);
@@ -154,260 +151,252 @@ class Player extends Entity {
             ctx.translate(-VH * 0.62, -VW / 2);
         }
 
-        // --- Animation timing ---
-        const runCycle  = Math.sin(t / 85);          // –1..+1 run cycle
-        const idleBob   = Math.sin(t / 1000) * 0.8;
-        const bobY      = this.state === 'run'  ? runCycle * 3  : idleBob;
-        const legSwing  = this.state === 'run'  ? runCycle * 10 : 0;
-        const armSwing  = this.state === 'run'  ? runCycle * 9  : 0;
-        const jumpBob   = this.state === 'jump' ? -2 : 0; // hair up in jump
+        const runCycle = Math.sin(t / 85);
+        const idleBob  = Math.sin(t / 1000) * 0.8;
+        const bobY     = this.state === 'run'  ? runCycle * 3  : idleBob;
+        const legSwing = this.state === 'run'  ? runCycle * 10 : 0;
+        const armSwing = this.state === 'run'  ? runCycle * 9  : 0;
+        const jumpBob  = this.state === 'jump' ? -2 : 0;
+
+        // ===== KEY COLORS (matching reference image) =====
+        const CLOAK_DARK   = '#1A7A40';  // shadow fold
+        const CLOAK_MID    = '#27AE60';  // main cloak — vivid green
+        const CLOAK_LIGHT  = '#2ECC71';  // highlight area
+        const SKIN         = '#F0C080';  // light peachy skin for contrast
+        const HAIR         = '#1C0E06';  // near-black dark brown (KEY FIX)
+        const HAIR_CURL    = '#2E1810';  // slightly lighter for curl detail
+        const VEST         = '#7A4020';  // reddish-brown leather vest
+        const VEST_SHADOW  = '#5A2E14';  // vest shadow side
+        const SHIRT        = '#F5EDD6';  // cream shirt
+        const TROUSER      = '#4E3020';  // dark brown trousers
 
         // =================================================================
-        // 1. CLOAK — behind the body (drawn first so body covers center)
+        // 1. CLOAK — DOMINANT VISUAL, VIVID BRIGHT GREEN
+        //    Drawn FIRST (behind everything), wide trapezoid shape
         // =================================================================
-        // Left side cloak panel
-        ctx.fillStyle = '#2D6A4F';
+        // Outer shadow edge (dark fold, left)
+        ctx.fillStyle = CLOAK_DARK;
         ctx.beginPath();
-        ctx.moveTo(4,  38 + bobY);
-        ctx.lineTo(15, 38 + bobY);
-        ctx.lineTo(10, VH - 2);
-        ctx.lineTo(-4, VH - 2);
+        ctx.moveTo(0,  36 + bobY);
+        ctx.lineTo(10, 36 + bobY);
+        ctx.lineTo(4,  VH);
+        ctx.lineTo(-6, VH);
         ctx.closePath();
         ctx.fill();
 
-        // Right side cloak panel
+        // Main cloak body — fills most of the lower character
+        ctx.fillStyle = CLOAK_MID;
         ctx.beginPath();
-        ctx.moveTo(33, 38 + bobY);
-        ctx.lineTo(44, 38 + bobY);
-        ctx.lineTo(52, VH - 2);
-        ctx.lineTo(38, VH - 2);
+        ctx.moveTo(2,  36 + bobY);
+        ctx.lineTo(46, 36 + bobY);
+        ctx.lineTo(50, VH);
+        ctx.lineTo(-2, VH);
         ctx.closePath();
         ctx.fill();
 
-        // Center-back lighter cloak (flows down)
-        ctx.fillStyle = '#40916C';
+        // Highlight on left face (lighter green panel)
+        ctx.fillStyle = CLOAK_LIGHT;
         ctx.beginPath();
-        ctx.moveTo(13, 38 + bobY);
-        ctx.lineTo(35, 38 + bobY);
-        ctx.lineTo(38, VH - 2);
-        ctx.lineTo(10, VH - 2);
+        ctx.moveTo(4,  36 + bobY);
+        ctx.lineTo(18, 36 + bobY);
+        ctx.lineTo(14, VH);
+        ctx.lineTo(2,  VH);
         ctx.closePath();
         ctx.fill();
 
-        // Cloak rim / hem highlight
-        ctx.strokeStyle = '#52B788';
-        ctx.lineWidth = 1.5;
+        // Dark shadow fold on right side of cloak
+        ctx.fillStyle = CLOAK_DARK;
         ctx.beginPath();
-        ctx.moveTo(-4, VH - 2);
-        ctx.lineTo(52, VH - 2);
-        ctx.stroke();
+        ctx.moveTo(34, 36 + bobY);
+        ctx.lineTo(46, 36 + bobY);
+        ctx.lineTo(50, VH);
+        ctx.lineTo(38, VH);
+        ctx.closePath();
+        ctx.fill();
+
+        // Cloak hem (bright highlight line at bottom)
+        ctx.fillStyle = CLOAK_LIGHT;
+        ctx.fillRect(-6, VH - 4, 58, 4);
+
+        // Cloak shoulder clasp (small gold pin)
+        ctx.fillStyle = '#DAA520';
+        ctx.beginPath();
+        ctx.arc(24, 37 + bobY, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.arc(24, 37 + bobY, 1.5, 0, Math.PI * 2);
+        ctx.fill();
 
         // =================================================================
-        // 2. LEGS — brown trousers (separate leg rects, alternate in run)
+        // 2. LEGS — dark brown trousers visible below vest
         // =================================================================
         const leftLegY  = 56 + bobY - legSwing * 0.3;
         const rightLegY = 56 + bobY + legSwing * 0.3;
 
-        ctx.fillStyle = '#5C3D1E'; // darker brown left leg
-        ctx.fillRect(14, leftLegY,  10, 14);
-        ctx.fillStyle = '#6B4A26'; // slightly lighter right leg
-        ctx.fillRect(24, rightLegY, 10, 14);
+        ctx.fillStyle = TROUSER;
+        ctx.fillRect(14, leftLegY,  10, 16);
+        ctx.fillStyle = '#5E3A22';
+        ctx.fillRect(24, rightLegY, 10, 16);
 
         // =================================================================
-        // 3. BARE HOBBIT FEET — wide, rounded, with hair wisps
+        // 3. BARE HOBBIT FEET — wide oval, hairy
         // =================================================================
-        const SKIN = '#DBA875';
-        // Left foot
         ctx.fillStyle = SKIN;
         ctx.beginPath();
-        ctx.ellipse(17, 70 + bobY, 9, 3.5, 0, 0, Math.PI * 2);
+        ctx.ellipse(17, 71 + bobY, 10, 4, 0, 0, Math.PI * 2);
         ctx.fill();
-        // Right foot
         ctx.beginPath();
-        ctx.ellipse(31, 70 + bobY, 9, 3.5, 0, 0, Math.PI * 2);
+        ctx.ellipse(31, 71 + bobY, 10, 4, 0, 0, Math.PI * 2);
         ctx.fill();
-        // Foot hair wisps (characteristic hobbit detail)
-        ctx.fillStyle = '#5C3A1E';
+
+        // Foot hair wisps
+        ctx.fillStyle = HAIR;
         for (let i = 0; i < 5; i++) {
-            ctx.fillRect(10 + i * 3,  66 + bobY, 1.5, 4);
-            ctx.fillRect(24 + i * 3,  66 + bobY, 1.5, 4);
+            ctx.fillRect(9  + i * 3, 67 + bobY, 1.5, 4);
+            ctx.fillRect(23 + i * 3, 67 + bobY, 1.5, 4);
         }
 
         // =================================================================
         // 4. BODY — brown vest + cream shirt + belt
         // =================================================================
-        // Brown leather vest (full body rect)
-        ctx.fillStyle = '#7A4F3A';
+        ctx.fillStyle = VEST;
         ctx.fillRect(13, 36 + bobY, 22, 22);
 
-        // Cream/white shirt showing through center
-        ctx.fillStyle = '#F5EDD6';
+        // Shirt center
+        ctx.fillStyle = SHIRT;
         ctx.fillRect(18, 36 + bobY, 12, 22);
 
-        // Vest side panels (overlap shirt)
-        ctx.fillStyle = '#7A4F3A';
-        ctx.fillRect(13, 36 + bobY, 5,  22);
-        ctx.fillRect(30, 36 + bobY, 5,  22);
+        // Vest left/right shadow panels
+        ctx.fillStyle = VEST_SHADOW;
+        ctx.fillRect(13, 36 + bobY, 6,  22);
+        ctx.fillRect(29, 36 + bobY, 6,  22);
 
-        // Belt — dark leather with gold buckle
-        ctx.fillStyle = '#2C1A0E';
-        ctx.fillRect(13, 54 + bobY, 22, 4);
-        ctx.fillStyle = '#DAA520';
-        ctx.fillRect(21, 55 + bobY, 6,  2);
+        // Belt
+        ctx.fillStyle = '#1A0C06';
+        ctx.fillRect(13, 53 + bobY, 22, 4);
+        ctx.fillStyle = '#DAA520';  // gold buckle
+        ctx.fillRect(21, 54 + bobY, 6, 2);
 
-        // Vest button row
-        ctx.fillStyle = '#5C3318';
+        // Vest buttons
+        ctx.fillStyle = VEST_SHADOW;
         for (let i = 0; i < 3; i++) {
             ctx.beginPath();
-            ctx.arc(24, 41 + bobY + i * 5, 1.5, 0, Math.PI * 2);
+            ctx.arc(24, 40 + bobY + i * 5, 1.5, 0, Math.PI * 2);
             ctx.fill();
         }
 
         // =================================================================
-        // 5. ONE RING CHAIN — hanging at chest
+        // 5. ONE RING CHAIN
         // =================================================================
         ctx.strokeStyle = '#C8A020';
         ctx.lineWidth   = 1;
         ctx.beginPath();
-        ctx.arc(24, 39 + bobY, 6, Math.PI * 0.25, Math.PI * 0.75);
+        ctx.arc(24, 39 + bobY, 6, Math.PI * 0.28, Math.PI * 0.72);
         ctx.stroke();
-        // Ring pendant
         ctx.strokeStyle = '#FFD700';
         ctx.lineWidth   = 1.5;
         ctx.shadowColor = '#FFD700';
-        ctx.shadowBlur  = 4;
+        ctx.shadowBlur  = 5;
         ctx.beginPath();
         ctx.arc(24, 45 + bobY, 3, 0, Math.PI * 2);
         ctx.stroke();
-        ctx.shadowBlur = 0;
+        ctx.shadowBlur  = 0;
 
         // =================================================================
-        // 6. ARMS — state-dependent
+        // 6. ARMS
         // =================================================================
-        ctx.shadowBlur = 0;
-
         if (this.state === 'attack-melee') {
-            // Right arm swings forward with Sting stick
             ctx.fillStyle = SKIN;
-            ctx.fillRect(33, 38 + bobY, 8, 5);   // upper arm thrust
-            ctx.fillRect(38, 40 + bobY, 7, 6);   // forearm
+            ctx.fillRect(33, 38 + bobY, 9, 5);
+            ctx.fillRect(39, 40 + bobY, 7, 6);
 
-            // STING / wooden sword
             if (this.stingGlowing) { ctx.shadowColor = '#00E5FF'; ctx.shadowBlur = 14; }
-            ctx.fillStyle = '#9B6A3C';           // wooden handle
-            ctx.fillRect(42, 33 + bobY, 4, 8);
-            ctx.fillStyle = '#C4CDD8';           // blade
-            ctx.fillRect(43, 13 + bobY, 3, 22);
-            ctx.fillStyle = '#DAA520';           // crossguard
+            ctx.fillStyle = '#9B6A3C';
+            ctx.fillRect(43, 33 + bobY, 4, 8);
+            ctx.fillStyle = '#C8D8E0';
+            ctx.fillRect(44, 13 + bobY, 3, 22);
+            ctx.fillStyle = '#DAA520';
             ctx.fillRect(40, 33 + bobY, 10, 3);
             ctx.shadowBlur = 0;
 
-            // Swing arc (short melee arc in front)
             ctx.save();
-            ctx.strokeStyle = 'rgba(240, 230, 130, 0.9)';
+            ctx.strokeStyle = 'rgba(240,230,130,0.9)';
             ctx.lineWidth   = 2.5;
             ctx.shadowColor = '#FFE566';
             ctx.shadowBlur  = 12;
             ctx.beginPath();
             ctx.arc(44, 26 + bobY, 16, -Math.PI * 0.7, Math.PI * 0.15);
             ctx.stroke();
-            ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-            ctx.lineWidth   = 1;
-            ctx.beginPath();
-            ctx.arc(44, 26 + bobY, 12, -Math.PI * 0.7, Math.PI * 0.15);
-            ctx.stroke();
             ctx.shadowBlur = 0;
             ctx.restore();
 
-            // Left arm stays at side
             ctx.fillStyle = SKIN;
-            ctx.save();
-            ctx.translate(14, 40 + bobY);
-            ctx.fillRect(-2, 0, 6, 14);
-            ctx.restore();
+            ctx.fillRect(11, 38 + bobY, 6, 14);
 
         } else if (this.state === 'attack-ranged') {
-            // Left arm pulls back, right arm swings underhand forward
             ctx.fillStyle = SKIN;
             ctx.save();
-            ctx.translate(14, 40 + bobY);
+            ctx.translate(13, 40 + bobY);
             ctx.rotate(-0.5);
-            ctx.fillRect(-3, -6, 6, 14); // left arm pull-back
+            ctx.fillRect(-3, -6, 6, 14);
             ctx.restore();
-
             ctx.save();
-            ctx.translate(34, 40 + bobY);
-            ctx.rotate(0.6);             // underhand swing forward
+            ctx.translate(35, 40 + bobY);
+            ctx.rotate(0.6);
             ctx.fillRect(-2, 0, 6, 14);
             ctx.restore();
-
-            // Rock in throwing hand
             ctx.fillStyle = '#909090';
-            ctx.shadowColor = '#555';
-            ctx.shadowBlur  = 3;
             ctx.beginPath();
-            ctx.arc(40, 52 + bobY, 4.5, 0, Math.PI * 2);
+            ctx.arc(41, 52 + bobY, 4.5, 0, Math.PI * 2);
             ctx.fill();
-            ctx.shadowBlur = 0;
 
         } else if (this.state === 'jump') {
-            // Both arms FLAIL outward — exactly as design sheet shows
-            // Left arm up-left
             ctx.fillStyle = SKIN;
             ctx.save();
-            ctx.translate(14, 40 + bobY);
-            ctx.rotate(-Math.PI * 0.5); // straight up-left
+            ctx.translate(13, 40 + bobY);
+            ctx.rotate(-Math.PI * 0.48);
             ctx.fillRect(-3, 0, 6, 15);
             ctx.restore();
-
-            // Right arm up-right
             ctx.save();
-            ctx.translate(34, 40 + bobY);
-            ctx.rotate(Math.PI * 0.5);  // straight up-right
+            ctx.translate(35, 40 + bobY);
+            ctx.rotate(Math.PI * 0.48);
             ctx.fillRect(-3, 0, 6, 15);
             ctx.restore();
 
-            // Sting hangs from right wrist during jump
             if (this.stingGlowing) { ctx.shadowColor = '#00E5FF'; ctx.shadowBlur = 8; }
             ctx.fillStyle = '#9B6A3C';
             ctx.save();
-            ctx.translate(34, 40 + bobY);
-            ctx.rotate(Math.PI * 0.5);
+            ctx.translate(35, 40 + bobY);
+            ctx.rotate(Math.PI * 0.48);
             ctx.fillRect(-1, 14, 3, 16);
-            ctx.fillStyle = '#C4CDD8';
+            ctx.fillStyle = '#C8D8E0';
             ctx.fillRect(-1, 0, 3, 16);
             ctx.restore();
             ctx.shadowBlur = 0;
 
         } else {
-            // IDLE / RUN — arms swing with run cycle, Sting carried at right side
             ctx.fillStyle = SKIN;
-
-            // Left arm swings forward when right leg swings back
             ctx.save();
-            ctx.translate(14, 40 + bobY);
+            ctx.translate(13, 40 + bobY);
             ctx.rotate((armSwing * 0.6) * Math.PI / 180);
             ctx.fillRect(-3, 0, 6, 14);
             ctx.restore();
-
-            // Right arm swings opposite
             ctx.save();
-            ctx.translate(34, 40 + bobY);
+            ctx.translate(35, 40 + bobY);
             ctx.rotate((-armSwing * 0.6) * Math.PI / 180);
             ctx.fillRect(-3, 0, 6, 14);
             ctx.restore();
 
-            // Sting at right hip — glows blue near enemies
-            const stickTilt = this.state === 'run' ? -armSwing * 0.01 : -0.15;
             if (this.stingGlowing) { ctx.shadowColor = '#00E5FF'; ctx.shadowBlur = 10; }
             ctx.save();
-            ctx.translate(38, 37 + bobY);
-            ctx.rotate(stickTilt);
-            ctx.fillStyle = '#9B6A3C'; // handle
+            ctx.translate(39, 37 + bobY);
+            ctx.rotate(-0.15);
+            ctx.fillStyle = '#9B6A3C';
             ctx.fillRect(-2, 12, 4, 8);
-            ctx.fillStyle = '#C4CDD8'; // blade
+            ctx.fillStyle = '#C8D8E0';
             ctx.fillRect(-2, -8, 4, 22);
-            ctx.fillStyle = '#DAA520'; // crossguard
+            ctx.fillStyle = '#DAA520';
             ctx.fillRect(-5, 12, 10, 2);
             ctx.restore();
             ctx.shadowBlur = 0;
@@ -417,134 +406,135 @@ class Player extends Entity {
         // 7. NECK
         // =================================================================
         ctx.fillStyle = SKIN;
-        ctx.fillRect(20, 32 + bobY, 8, 6);
+        ctx.fillRect(20, 31 + bobY, 8, 7);
 
         // =================================================================
-        // 8. HEAD — large chibi circle (radius 16, center y≈18)
+        // 8. HEAD — large chibi circle
         // =================================================================
         ctx.fillStyle = SKIN;
         ctx.beginPath();
-        ctx.arc(24, 18 + bobY + jumpBob, 16, 0, Math.PI * 2);
+        ctx.arc(24, 17 + bobY + jumpBob, 16, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Chin shadow
+        ctx.fillStyle = 'rgba(180, 100, 40, 0.12)';
+        ctx.beginPath();
+        ctx.arc(24, 28 + bobY + jumpBob, 10, 0, Math.PI);
         ctx.fill();
 
         // Rosy cheeks
-        ctx.fillStyle = 'rgba(220, 100, 80, 0.22)';
+        ctx.fillStyle = 'rgba(220, 90, 60, 0.2)';
         ctx.beginPath();
-        ctx.arc(12, 22 + bobY + jumpBob, 7, 0, Math.PI * 2);
+        ctx.arc(11, 21 + bobY + jumpBob, 7, 0, Math.PI * 2);
         ctx.fill();
         ctx.beginPath();
-        ctx.arc(36, 22 + bobY + jumpBob, 7, 0, Math.PI * 2);
-        ctx.fill();
-
-        // =================================================================
-        // 9. CURLY BROWN HAIR — 3 curl masses + highlight layer
-        // =================================================================
-        const HY = bobY + jumpBob; // hair offset
-        const HAIR_DARK = '#6B3D1E', HAIR_MID = '#8B5A2A', HAIR_LITE = '#A07040';
-
-        // Main hair mass (covers top + sides of head)
-        ctx.fillStyle = HAIR_DARK;
-        ctx.beginPath();
-        ctx.arc(24, 10 + HY, 16, Math.PI * 0.95, Math.PI * 0.05); // upper arc
-        ctx.fill();
-
-        // Left big curl
-        ctx.beginPath();
-        ctx.arc(10, 15 + HY, 10, Math.PI * 0.4, Math.PI * 1.95);
-        ctx.fill();
-
-        // Right big curl
-        ctx.beginPath();
-        ctx.arc(38, 15 + HY, 10, Math.PI * 1.05, Math.PI * 0.6);
-        ctx.fill();
-
-        // Mid-tone highlights on top
-        ctx.fillStyle = HAIR_MID;
-        ctx.beginPath();
-        ctx.arc(24, 5 + HY, 9, Math.PI, 0);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(17, 8 + HY, 5, Math.PI, 0);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(31, 8 + HY, 5, Math.PI, 0);
-        ctx.fill();
-
-        // Light highlight strand at top-center
-        ctx.fillStyle = HAIR_LITE;
-        ctx.beginPath();
-        ctx.arc(24, 2 + HY, 5, Math.PI, 0);
+        ctx.arc(37, 21 + bobY + jumpBob, 7, 0, Math.PI * 2);
         ctx.fill();
 
         // =================================================================
-        // 10. EYES — big, green, friendly (chibi eyes with shine)
+        // 9. HAIR — NEAR-BLACK DARK BROWN (KEY FIX from reference)
+        //    The reference shows very dark, almost-black curly hair
         // =================================================================
-        const EY = 20 + bobY + jumpBob; // eye vertical center
+        const HY = bobY + jumpBob;
 
-        // Eye whites
+        // Main dark hair mass — covers top and sides completely
+        ctx.fillStyle = HAIR;
+        ctx.beginPath();
+        ctx.arc(24, 9 + HY, 17, Math.PI * 0.88, Math.PI * 0.12);
+        ctx.fill();
+
+        // Left side curl — large rounded chunk
+        ctx.beginPath();
+        ctx.arc(8, 14 + HY, 11, Math.PI * 0.35, Math.PI * 1.9);
+        ctx.fill();
+
+        // Right side curl — mirror
+        ctx.beginPath();
+        ctx.arc(40, 14 + HY, 11, Math.PI * 1.1, Math.PI * 0.65);
+        ctx.fill();
+
+        // Small bottom curl tufts (curly texture)
+        ctx.beginPath();
+        ctx.arc(15, 22 + HY, 5, Math.PI, Math.PI * 1.95);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(33, 22 + HY, 5, Math.PI * 1.05, 0);
+        ctx.fill();
+
+        // Curl highlight (slightly lighter) — shows curl texture
+        ctx.fillStyle = HAIR_CURL;
+        ctx.beginPath();
+        ctx.arc(18, 5 + HY, 6, Math.PI, 0);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(30, 4 + HY, 5, Math.PI, 0);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(9,  12 + HY, 5, Math.PI * 0.5, Math.PI * 1.7);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(39, 12 + HY, 5, Math.PI * 1.3, Math.PI * 0.5);
+        ctx.fill();
+
+        // =================================================================
+        // 10. EYES — big, green, friendly
+        // =================================================================
+        const EY = 19 + bobY + jumpBob;
+
+        // Whites
         ctx.fillStyle = '#FFFFFF';
         ctx.beginPath(); ctx.ellipse(16, EY, 5.5, 4.5, 0, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.ellipse(32, EY, 5.5, 4.5, 0, 0, Math.PI * 2); ctx.fill();
 
         // Green irises
-        ctx.fillStyle = '#4CAF50';
-        ctx.beginPath(); ctx.ellipse(16, EY, 4, 4, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(32, EY, 4, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#388E3C';
+        ctx.beginPath(); ctx.ellipse(16, EY, 4,   4,   0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(32, EY, 4,   4,   0, 0, Math.PI * 2); ctx.fill();
 
         // Dark pupils
-        ctx.fillStyle = '#1A0A00';
-        ctx.beginPath(); ctx.ellipse(16.5, EY, 2.2, 2.8, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(32.5, EY, 2.2, 2.8, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#0D0600';
+        ctx.beginPath(); ctx.ellipse(16.5, EY, 2.2, 2.6, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(32.5, EY, 2.2, 2.6, 0, 0, Math.PI * 2); ctx.fill();
 
-        // Eye shine (brings character to life)
+        // Shine
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(17, EY - 2, 2, 2);
         ctx.fillRect(33, EY - 2, 2, 2);
 
-        // Eyelashes (simple strokes)
-        ctx.strokeStyle = '#3B1E08';
-        ctx.lineWidth   = 1;
-        ctx.beginPath(); ctx.moveTo(11, EY - 4); ctx.lineTo(13, EY - 2); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(21, EY - 4); ctx.lineTo(20, EY - 2); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(27, EY - 4); ctx.lineTo(28, EY - 2); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(37, EY - 4); ctx.lineTo(36, EY - 2); ctx.stroke();
+        // Eyebrows (dark, expressive)
+        ctx.fillStyle = HAIR;
+        ctx.fillRect(11, EY - 6, 10, 2);
+        ctx.fillRect(27, EY - 6, 10, 2);
 
         // =================================================================
         // 11. NOSE & MOUTH
         // =================================================================
         const NY = 25 + bobY + jumpBob;
-
-        // Round button nose
-        ctx.fillStyle = '#C8906A';
-        ctx.beginPath(); ctx.arc(24, NY, 3, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#A07050';
+        ctx.fillStyle = '#C07840';
+        ctx.beginPath(); ctx.arc(24, NY, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#9B5A30';
         ctx.fillRect(22, NY + 1, 2, 2);
         ctx.fillRect(26, NY + 1, 2, 2);
 
-        // Mouth — changes with state
         const MY = NY + 5;
         ctx.strokeStyle = '#9B5A3C';
         ctx.lineWidth   = 1.8;
         if (this.state === 'death') {
-            // Sad upside-down arc
             ctx.beginPath(); ctx.arc(24, MY + 2, 4, Math.PI, 0); ctx.stroke();
         } else if (this.state === 'attack-melee' || this.state === 'attack-ranged') {
-            // Determined flat line
-            ctx.fillStyle = '#9B5A3C';
+            ctx.fillStyle = '#8B4020';
             ctx.fillRect(19, MY, 10, 2);
         } else if (this.state === 'jump') {
-            // Surprised 'O' mouth
             ctx.beginPath(); ctx.ellipse(24, MY, 3, 4, 0, 0, Math.PI * 2); ctx.stroke();
         } else {
-            // Friendly smile
-            ctx.beginPath(); ctx.arc(24, MY - 1, 4.5, 0.15, Math.PI - 0.15); ctx.stroke();
+            ctx.beginPath(); ctx.arc(24, MY - 1, 4, 0.2, Math.PI - 0.2); ctx.stroke();
         }
 
         // =================================================================
-        // 12. STING GLOW AURA — blue outline when Orc/Troll nearby
+        // 12. STING GLOW AURA
         // =================================================================
         if (this.stingGlowing) {
-            const pulse = 0.2 + Math.sin(t / 200) * 0.12;
+            const pulse = 0.18 + Math.sin(t / 200) * 0.1;
             ctx.save();
             ctx.globalAlpha = pulse;
             ctx.strokeStyle = '#00E5FF';
@@ -558,32 +548,25 @@ class Player extends Entity {
         }
 
         // =================================================================
-        // 13. HIT FEEDBACK — red flash + dust cloud + stumble particles
+        // 13. HIT FEEDBACK
         // =================================================================
         if (this.hitFlash > 0) {
-            const progress = this.hitFlash / 12;  // 1 → 0
-
-            // Red overlay flash
+            const progress = this.hitFlash / 12;
             ctx.save();
-            ctx.globalAlpha = progress * 0.55;
+            ctx.globalAlpha = progress * 0.5;
             ctx.fillStyle   = '#FF2200';
             ctx.beginPath();
             ctx.ellipse(VW / 2, VH * 0.55, VW / 2 + 4, VH / 2, 0, 0, Math.PI * 2);
             ctx.fill();
-            ctx.restore();
-
-            // Dust cloud burst
-            ctx.save();
             ctx.globalAlpha = progress * 0.8;
             for (let i = 0; i < 7; i++) {
                 const angle = (i / 7) * Math.PI * 2;
-                const r     = (1 - progress) * 22 + 8; // particles fly outward
+                const r     = (1 - progress) * 22 + 8;
                 const px    = VW / 2 + Math.cos(angle) * r;
                 const py    = VH * 0.65 + Math.sin(angle) * r * 0.4;
-                const size  = 3 + Math.random() * 3;
                 ctx.fillStyle = i % 2 === 0 ? '#D4B48A' : '#C8956A';
                 ctx.beginPath();
-                ctx.arc(px, py, size * progress, 0, Math.PI * 2);
+                ctx.arc(px, py, 3 * progress, 0, Math.PI * 2);
                 ctx.fill();
             }
             ctx.restore();
