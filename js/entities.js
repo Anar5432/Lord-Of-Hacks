@@ -19,7 +19,6 @@ class Entity {
         this.height = height;
     }
 
-    // Convert game-space (x, y) to canvas top-left pixel for drawing
     screenPos(cameraX) {
         return {
             sx: Math.round(this.x - cameraX),
@@ -35,21 +34,22 @@ class Entity {
 // --------------------------------------------------------------------------
 class Player extends Entity {
     constructor(x, y, charType) {
-        // Hobbit: smallest hitbox for tight platforming
         const dims = { Hobbit: [24, 36], Ranger: [28, 44], Wizard: [30, 48] };
         const [w, h] = dims[charType] || dims.Hobbit;
         super(x, y, w, h);
 
-        this.charType   = charType;
-        this.vx         = 0;
-        this.vy         = 0;
-        this.isGrounded = false;
-        this.direction  = 1;        // 1 = facing right, -1 = facing left
-        this.state      = 'idle';   // idle | run | jump | attack-melee | attack-ranged | death
-        this.attackTimer      = 0;  // frames remaining for attack animation
-        this.stingGlowing     = false; // Sting proximity passive
-        this.lastAttackTime   = 0;
-        this.invincibleTimer  = 0;  // brief invincibility frames after hit
+        this.charType        = charType;
+        this.vx              = 0;
+        this.vy              = 0;
+        this.isGrounded      = false;
+        this.direction       = 1;       // 1 = right, -1 = left
+        this.state           = 'idle';  // idle|run|jump|attack-melee|attack-ranged|death
+        this.attackTimer     = 0;
+        this.stingGlowing    = false;
+        this.lastAttackTime  = 0;
+        this.invincibleTimer = 0;       // invincibility frames after a hit
+        this.hitFlash        = 0;       // flash frames for hit feedback (12 frames)
+        this.knockbackVx     = 0;       // player stumble-back on hit
 
         this.setupStats();
     }
@@ -57,19 +57,19 @@ class Player extends Entity {
     setupStats() {
         switch (this.charType) {
             case 'Wizard':
-                this.maxHealth    = 100;
-                this.damage       = 30;
-                this.shootCooldown = 300;
+                this.maxHealth     = 100;
+                this.damage        = 30;
+                this.shootCooldown = 400;
                 break;
             case 'Ranger':
-                this.maxHealth    = 70;
-                this.damage       = 15;
-                this.shootCooldown = 450;
+                this.maxHealth     = 70;
+                this.damage        = 15;
+                this.shootCooldown = 600;
                 break;
-            default: // Hobbit
-                this.maxHealth    = 40;
-                this.damage       = 10;
-                this.shootCooldown = 500;
+            default: // Hobbit — design spec: 3-4 hits, slow fire rate
+                this.maxHealth     = 40;
+                this.damage        = 10;
+                this.shootCooldown = 1200; // 1 attack per 1.2 seconds
         }
         this.health = this.maxHealth;
     }
@@ -81,273 +81,511 @@ class Player extends Entity {
         }
     }
 
-    takeDamage(amount) {
+    // Discrete hit: 12 damage per contact → 3–4 hits = death at 40HP
+    takeDamage(amount, attackerX) {
         if (this.invincibleTimer > 0) return;
-        this.health = Math.max(0, this.health - amount);
-        this.invincibleTimer = 60; // 1 second of invincibility
+        this.health          = Math.max(0, this.health - amount);
+        this.invincibleTimer = 60;  // 1 s immunity
+        this.hitFlash        = 12;  // 12-frame red flash
+        // Full knockback — stumble backward from attacker
+        if (attackerX !== undefined) {
+            this.knockbackVx = (this.x > attackerX ? 1 : -1) * 5;
+        }
     }
 
     updateState() {
         if (this.invincibleTimer > 0) this.invincibleTimer--;
-        if (this.health <= 0)  { this.state = 'death';  return; }
-        if (this.attackTimer > 0) { this.attackTimer--;  return; }
-        if (!this.isGrounded)  { this.state = 'jump';   return; }
-        if (this.vx !== 0)     { this.state = 'run';    return; }
+        if (this.hitFlash       > 0) this.hitFlash--;
+
+        // Apply player knockback decay
+        if (Math.abs(this.knockbackVx) > 0.1) {
+            this.x          += this.knockbackVx;
+            this.knockbackVx *= 0.7;
+        } else {
+            this.knockbackVx = 0;
+        }
+
+        if (this.health <= 0)    { this.state = 'death';  return; }
+        if (this.attackTimer > 0){ this.attackTimer--;     return; }
+        if (!this.isGrounded)    { this.state = 'jump';   return; }
+        if (this.vx !== 0)       { this.state = 'run';    return; }
         this.state = 'idle';
     }
 
-    // -----------------------------------------------------------------------
-    // Main draw dispatcher
-    // -----------------------------------------------------------------------
     draw(ctx, cameraX) {
-        // Flash when invincible
+        // Blink during invincibility frames
         if (this.invincibleTimer > 0 && Math.floor(this.invincibleTimer / 5) % 2 === 0) return;
-
         if (this.charType === 'Hobbit') this._drawHobbit(ctx, cameraX);
-        // Ranger and Wizard will be added in future phases
+        // Ranger and Wizard to be added later
     }
 
-    // -----------------------------------------------------------------------
-    // HOBBIT (Frodo-style) — full pixel-art Canvas drawing
-    // Visual is 2× physics hitbox (48×72) bottom-aligned and centered
-    // -----------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // HOBBIT — Frodo-style chibi pixel art (48×72 visual on 24×36 hitbox)
+    //
+    // Proportions (72px total visual height):
+    //   Hair+Head : y  0–35   (large chibi head = ~48% of body)
+    //   Body      : y 35–56
+    //   Legs+Feet : y 56–72
+    // -------------------------------------------------------------------------
     _drawHobbit(ctx, cameraX) {
         const { sx, sy } = this.screenPos(cameraX);
-        const t = Date.now();
-
-        // Draw visual larger than hitbox, bottom-aligned
+        const t  = Date.now();
         const VW = 48, VH = 72;
+
+        // Anchor: bottom of visual aligns with bottom of physics hitbox
         const ox = sx - (VW - this.width)  / 2;  // center horizontally
-        const oy = sy - (VH - this.height);       // align bottoms
+        const oy = sy - (VH - this.height);       // bottom-aligned
 
         ctx.save();
 
-        // Flip horizontally when facing left
+        // --- Directional flip ---
         if (this.direction === -1) {
             ctx.translate(ox + VW, oy);
             ctx.scale(-1, 1);
-            ctx.translate(0, 0);
         } else {
             ctx.translate(ox, oy);
         }
 
-        // Death: rotate and fade
+        // --- Death pose: rotate 90° and fade ---
         if (this.state === 'death') {
-            ctx.globalAlpha = 0.5;
-            ctx.translate(VW / 2, VH / 2);
+            ctx.globalAlpha = 0.55;
+            ctx.translate(VW / 2, VH * 0.62);
             ctx.rotate(Math.PI / 2);
-            ctx.translate(-VH / 2, -VW / 2);
+            ctx.translate(-VH * 0.62, -VW / 2);
         }
 
-        // Animation offsets
-        const runCycle  = Math.sin(t / 80);
-        const idleBob   = Math.sin(t / 700) * 1;
+        // --- Animation timing ---
+        const runCycle  = Math.sin(t / 85);          // –1..+1 run cycle
+        const idleBob   = Math.sin(t / 1000) * 0.8;
         const bobY      = this.state === 'run'  ? runCycle * 3  : idleBob;
-        const legSwing  = this.state === 'run'  ? runCycle * 8  : 0;
-        const jumpStretch = this.state === 'jump' ? -4 : 0;
+        const legSwing  = this.state === 'run'  ? runCycle * 10 : 0;
+        const armSwing  = this.state === 'run'  ? runCycle * 9  : 0;
+        const jumpBob   = this.state === 'jump' ? -2 : 0; // hair up in jump
 
-        // ---- CLOAK (back layer, drawn first) ----
-        ctx.fillStyle = '#1B4332';
-        ctx.beginPath();
-        ctx.moveTo(4,  28 + bobY);
-        ctx.lineTo(44, 28 + bobY);
-        ctx.lineTo(48, VH);
-        ctx.lineTo(0,  VH);
-        ctx.closePath();
-        ctx.fill();
-
-        // Cloak highlight / fold
+        // =================================================================
+        // 1. CLOAK — behind the body (drawn first so body covers center)
+        // =================================================================
+        // Left side cloak panel
         ctx.fillStyle = '#2D6A4F';
         ctx.beginPath();
-        ctx.moveTo(8,  28 + bobY);
-        ctx.lineTo(40, 28 + bobY);
-        ctx.lineTo(36, VH - 4);
-        ctx.lineTo(12, VH - 4);
+        ctx.moveTo(4,  38 + bobY);
+        ctx.lineTo(15, 38 + bobY);
+        ctx.lineTo(10, VH - 2);
+        ctx.lineTo(-4, VH - 2);
         ctx.closePath();
         ctx.fill();
 
-        // ---- LEGS ----
-        const legColor1 = '#4A3520', legColor2 = '#5C4430';
-        // Left leg
-        ctx.fillStyle = legColor1;
-        ctx.fillRect(10, 50 + bobY - legSwing * 0.4, 12, 16 + jumpStretch);
-        // Right leg
-        ctx.fillStyle = legColor2;
-        ctx.fillRect(26, 50 + bobY + legSwing * 0.4, 12, 16 + jumpStretch);
+        // Right side cloak panel
+        ctx.beginPath();
+        ctx.moveTo(33, 38 + bobY);
+        ctx.lineTo(44, 38 + bobY);
+        ctx.lineTo(52, VH - 2);
+        ctx.lineTo(38, VH - 2);
+        ctx.closePath();
+        ctx.fill();
 
-        // ---- HAIRY HOBBIT FEET ----
-        ctx.fillStyle = '#E8C49A'; // skin
-        ctx.fillRect(8,  65 + bobY, 14, 5);
-        ctx.fillRect(26, 65 + bobY, 14, 5);
-        // Foot hair (dark wisps)
+        // Center-back lighter cloak (flows down)
+        ctx.fillStyle = '#40916C';
+        ctx.beginPath();
+        ctx.moveTo(13, 38 + bobY);
+        ctx.lineTo(35, 38 + bobY);
+        ctx.lineTo(38, VH - 2);
+        ctx.lineTo(10, VH - 2);
+        ctx.closePath();
+        ctx.fill();
+
+        // Cloak rim / hem highlight
+        ctx.strokeStyle = '#52B788';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(-4, VH - 2);
+        ctx.lineTo(52, VH - 2);
+        ctx.stroke();
+
+        // =================================================================
+        // 2. LEGS — brown trousers (separate leg rects, alternate in run)
+        // =================================================================
+        const leftLegY  = 56 + bobY - legSwing * 0.3;
+        const rightLegY = 56 + bobY + legSwing * 0.3;
+
+        ctx.fillStyle = '#5C3D1E'; // darker brown left leg
+        ctx.fillRect(14, leftLegY,  10, 14);
+        ctx.fillStyle = '#6B4A26'; // slightly lighter right leg
+        ctx.fillRect(24, rightLegY, 10, 14);
+
+        // =================================================================
+        // 3. BARE HOBBIT FEET — wide, rounded, with hair wisps
+        // =================================================================
+        const SKIN = '#DBA875';
+        // Left foot
+        ctx.fillStyle = SKIN;
+        ctx.beginPath();
+        ctx.ellipse(17, 70 + bobY, 9, 3.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Right foot
+        ctx.beginPath();
+        ctx.ellipse(31, 70 + bobY, 9, 3.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Foot hair wisps (characteristic hobbit detail)
         ctx.fillStyle = '#5C3A1E';
         for (let i = 0; i < 5; i++) {
-            ctx.fillRect(8  + i * 2.5, 63 + bobY, 2, 3);
-            ctx.fillRect(26 + i * 2.5, 63 + bobY, 2, 3);
+            ctx.fillRect(10 + i * 3,  66 + bobY, 1.5, 4);
+            ctx.fillRect(24 + i * 3,  66 + bobY, 1.5, 4);
         }
 
-        // ---- VEST / SHIRT BODY ----
-        // Brown leather vest
+        // =================================================================
+        // 4. BODY — brown vest + cream shirt + belt
+        // =================================================================
+        // Brown leather vest (full body rect)
         ctx.fillStyle = '#7A4F3A';
-        ctx.fillRect(10, 28 + bobY, 28, 24);
-        // Cream shirt showing through center
-        ctx.fillStyle = '#F0E0C0';
-        ctx.fillRect(16, 28 + bobY, 16, 24);
-        // Vest lapels (left / right)
+        ctx.fillRect(13, 36 + bobY, 22, 22);
+
+        // Cream/white shirt showing through center
+        ctx.fillStyle = '#F5EDD6';
+        ctx.fillRect(18, 36 + bobY, 12, 22);
+
+        // Vest side panels (overlap shirt)
         ctx.fillStyle = '#7A4F3A';
-        ctx.fillRect(10, 28 + bobY, 6, 24);
-        ctx.fillRect(32, 28 + bobY, 6, 24);
-        // Belt
+        ctx.fillRect(13, 36 + bobY, 5,  22);
+        ctx.fillRect(30, 36 + bobY, 5,  22);
+
+        // Belt — dark leather with gold buckle
         ctx.fillStyle = '#2C1A0E';
-        ctx.fillRect(10, 48 + bobY, 28, 4);
-        // Belt buckle
-        ctx.fillStyle = '#C8A000';
-        ctx.fillRect(21, 49 + bobY, 6, 2);
+        ctx.fillRect(13, 54 + bobY, 22, 4);
+        ctx.fillStyle = '#DAA520';
+        ctx.fillRect(21, 55 + bobY, 6,  2);
 
-        // ---- ARMS ----
+        // Vest button row
+        ctx.fillStyle = '#5C3318';
+        for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.arc(24, 41 + bobY + i * 5, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // =================================================================
+        // 5. ONE RING CHAIN — hanging at chest
+        // =================================================================
+        ctx.strokeStyle = '#C8A020';
+        ctx.lineWidth   = 1;
+        ctx.beginPath();
+        ctx.arc(24, 39 + bobY, 6, Math.PI * 0.25, Math.PI * 0.75);
+        ctx.stroke();
+        // Ring pendant
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth   = 1.5;
+        ctx.shadowColor = '#FFD700';
+        ctx.shadowBlur  = 4;
+        ctx.beginPath();
+        ctx.arc(24, 45 + bobY, 3, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // =================================================================
+        // 6. ARMS — state-dependent
+        // =================================================================
+        ctx.shadowBlur = 0;
+
         if (this.state === 'attack-melee') {
-            // Right arm thrusting forward with Sting
-            ctx.fillStyle = '#E8C49A';
-            ctx.fillRect(38, 30 + bobY, 10, 8);
+            // Right arm swings forward with Sting stick
+            ctx.fillStyle = SKIN;
+            ctx.fillRect(33, 38 + bobY, 8, 5);   // upper arm thrust
+            ctx.fillRect(38, 40 + bobY, 7, 6);   // forearm
 
-            // STING SWORD
-            if (this.stingGlowing) {
-                ctx.shadowColor = '#00E5FF';
-                ctx.shadowBlur  = 16;
-            }
-            ctx.fillStyle = '#B8C8D8'; // blade
-            ctx.fillRect(44, 18 + bobY, 5, 22);
-            ctx.fillStyle = '#DAA520'; // crossguard
-            ctx.fillRect(41, 32 + bobY, 11, 4);
-            ctx.fillStyle = '#6B3A2A'; // handle
-            ctx.fillRect(45, 36 + bobY, 3, 8);
+            // STING / wooden sword
+            if (this.stingGlowing) { ctx.shadowColor = '#00E5FF'; ctx.shadowBlur = 14; }
+            ctx.fillStyle = '#9B6A3C';           // wooden handle
+            ctx.fillRect(42, 33 + bobY, 4, 8);
+            ctx.fillStyle = '#C4CDD8';           // blade
+            ctx.fillRect(43, 13 + bobY, 3, 22);
+            ctx.fillStyle = '#DAA520';           // crossguard
+            ctx.fillRect(40, 33 + bobY, 10, 3);
             ctx.shadowBlur = 0;
 
-            // Slash arc effect
+            // Swing arc (short melee arc in front)
             ctx.save();
-            ctx.strokeStyle = 'rgba(255, 240, 150, 0.9)';
-            ctx.lineWidth   = 3;
-            ctx.shadowColor = '#FFD700';
-            ctx.shadowBlur  = 14;
+            ctx.strokeStyle = 'rgba(240, 230, 130, 0.9)';
+            ctx.lineWidth   = 2.5;
+            ctx.shadowColor = '#FFE566';
+            ctx.shadowBlur  = 12;
             ctx.beginPath();
-            ctx.arc(52, 28 + bobY, 18, -Math.PI * 0.6, Math.PI * 0.3);
+            ctx.arc(44, 26 + bobY, 16, -Math.PI * 0.7, Math.PI * 0.15);
             ctx.stroke();
             ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-            ctx.lineWidth = 1;
+            ctx.lineWidth   = 1;
             ctx.beginPath();
-            ctx.arc(52, 28 + bobY, 15, -Math.PI * 0.6, Math.PI * 0.3);
+            ctx.arc(44, 26 + bobY, 12, -Math.PI * 0.7, Math.PI * 0.15);
             ctx.stroke();
             ctx.shadowBlur = 0;
             ctx.restore();
 
+            // Left arm stays at side
+            ctx.fillStyle = SKIN;
+            ctx.save();
+            ctx.translate(14, 40 + bobY);
+            ctx.fillRect(-2, 0, 6, 14);
+            ctx.restore();
+
         } else if (this.state === 'attack-ranged') {
-            // Left arm winding back, right arm throwing
-            ctx.fillStyle = '#E8C49A';
-            ctx.fillRect(-4, 24 + bobY, 14, 8);  // wind-back arm
-            ctx.fillRect(38, 28 + bobY, 12, 8);  // throw arm
-            // Rock in hand (about to release)
-            ctx.fillStyle = '#8A8A8A';
-            ctx.shadowColor = '#666';
-            ctx.shadowBlur = 3;
+            // Left arm pulls back, right arm swings underhand forward
+            ctx.fillStyle = SKIN;
+            ctx.save();
+            ctx.translate(14, 40 + bobY);
+            ctx.rotate(-0.5);
+            ctx.fillRect(-3, -6, 6, 14); // left arm pull-back
+            ctx.restore();
+
+            ctx.save();
+            ctx.translate(34, 40 + bobY);
+            ctx.rotate(0.6);             // underhand swing forward
+            ctx.fillRect(-2, 0, 6, 14);
+            ctx.restore();
+
+            // Rock in throwing hand
+            ctx.fillStyle = '#909090';
+            ctx.shadowColor = '#555';
+            ctx.shadowBlur  = 3;
             ctx.beginPath();
-            ctx.arc(50, 26 + bobY, 5, 0, Math.PI * 2);
+            ctx.arc(40, 52 + bobY, 4.5, 0, Math.PI * 2);
             ctx.fill();
             ctx.shadowBlur = 0;
 
-        } else {
-            // Normal idle / run arms swinging
-            ctx.fillStyle = '#E8C49A';
-            // Left arm (swings forward when right leg goes back)
-            ctx.fillRect(0,  30 + bobY + legSwing * 0.3, 10, 18);
-            // Right arm
-            ctx.fillRect(38, 30 + bobY - legSwing * 0.3, 10, 18);
+        } else if (this.state === 'jump') {
+            // Both arms FLAIL outward — exactly as design sheet shows
+            // Left arm up-left
+            ctx.fillStyle = SKIN;
+            ctx.save();
+            ctx.translate(14, 40 + bobY);
+            ctx.rotate(-Math.PI * 0.5); // straight up-left
+            ctx.fillRect(-3, 0, 6, 15);
+            ctx.restore();
 
-            // Sting sword at hip (passive carry)
-            if (this.stingGlowing) {
-                ctx.shadowColor = '#00E5FF';
-                ctx.shadowBlur  = 10;
-                ctx.fillStyle   = '#B8C8D8';
-                ctx.fillRect(40, 38 + bobY, 4, 20);
-                ctx.fillStyle   = '#DAA520';
-                ctx.fillRect(37, 45 + bobY, 10, 3);
-                ctx.shadowBlur  = 0;
-            }
+            // Right arm up-right
+            ctx.save();
+            ctx.translate(34, 40 + bobY);
+            ctx.rotate(Math.PI * 0.5);  // straight up-right
+            ctx.fillRect(-3, 0, 6, 15);
+            ctx.restore();
+
+            // Sting hangs from right wrist during jump
+            if (this.stingGlowing) { ctx.shadowColor = '#00E5FF'; ctx.shadowBlur = 8; }
+            ctx.fillStyle = '#9B6A3C';
+            ctx.save();
+            ctx.translate(34, 40 + bobY);
+            ctx.rotate(Math.PI * 0.5);
+            ctx.fillRect(-1, 14, 3, 16);
+            ctx.fillStyle = '#C4CDD8';
+            ctx.fillRect(-1, 0, 3, 16);
+            ctx.restore();
+            ctx.shadowBlur = 0;
+
+        } else {
+            // IDLE / RUN — arms swing with run cycle, Sting carried at right side
+            ctx.fillStyle = SKIN;
+
+            // Left arm swings forward when right leg swings back
+            ctx.save();
+            ctx.translate(14, 40 + bobY);
+            ctx.rotate((armSwing * 0.6) * Math.PI / 180);
+            ctx.fillRect(-3, 0, 6, 14);
+            ctx.restore();
+
+            // Right arm swings opposite
+            ctx.save();
+            ctx.translate(34, 40 + bobY);
+            ctx.rotate((-armSwing * 0.6) * Math.PI / 180);
+            ctx.fillRect(-3, 0, 6, 14);
+            ctx.restore();
+
+            // Sting at right hip — glows blue near enemies
+            const stickTilt = this.state === 'run' ? -armSwing * 0.01 : -0.15;
+            if (this.stingGlowing) { ctx.shadowColor = '#00E5FF'; ctx.shadowBlur = 10; }
+            ctx.save();
+            ctx.translate(38, 37 + bobY);
+            ctx.rotate(stickTilt);
+            ctx.fillStyle = '#9B6A3C'; // handle
+            ctx.fillRect(-2, 12, 4, 8);
+            ctx.fillStyle = '#C4CDD8'; // blade
+            ctx.fillRect(-2, -8, 4, 22);
+            ctx.fillStyle = '#DAA520'; // crossguard
+            ctx.fillRect(-5, 12, 10, 2);
+            ctx.restore();
+            ctx.shadowBlur = 0;
         }
 
-        // ---- HEAD ----
-        // Clear shadow before drawing face for clean look
-        ctx.shadowBlur = 0;
-        ctx.shadowColor = 'transparent';
+        // =================================================================
+        // 7. NECK
+        // =================================================================
+        ctx.fillStyle = SKIN;
+        ctx.fillRect(20, 32 + bobY, 8, 6);
 
-        // Neck
-        ctx.fillStyle = '#E8C49A';
-        ctx.fillRect(19, 18 + bobY, 10, 12);
-
-        // Head (round, skin tone)
-        ctx.fillStyle = '#E8C49A';
+        // =================================================================
+        // 8. HEAD — large chibi circle (radius 16, center y≈18)
+        // =================================================================
+        ctx.fillStyle = SKIN;
         ctx.beginPath();
-        ctx.arc(24, 14 + bobY, 13, 0, Math.PI * 2);
-        ctx.fill();
-
-        // ---- CURLY HAIR ----
-        ctx.fillStyle = '#5C3A1E';
-        // Main hair mass
-        ctx.beginPath();
-        ctx.arc(24, 5 + bobY, 12, Math.PI, 0);
-        ctx.fill();
-        // Left curl
-        ctx.beginPath();
-        ctx.arc(13, 9 + bobY, 7, Math.PI * 0.5, Math.PI * 1.8);
-        ctx.fill();
-        // Right curl
-        ctx.beginPath();
-        ctx.arc(35, 9 + bobY, 7, Math.PI * 1.2, Math.PI * 0.5);
-        ctx.fill();
-        // Top tuft
-        ctx.beginPath();
-        ctx.arc(24, 0 + bobY, 5, Math.PI, 0);
+        ctx.arc(24, 18 + bobY + jumpBob, 16, 0, Math.PI * 2);
         ctx.fill();
 
-        // ---- EYES ----
-        // Whites
+        // Rosy cheeks
+        ctx.fillStyle = 'rgba(220, 100, 80, 0.22)';
+        ctx.beginPath();
+        ctx.arc(12, 22 + bobY + jumpBob, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(36, 22 + bobY + jumpBob, 7, 0, Math.PI * 2);
+        ctx.fill();
+
+        // =================================================================
+        // 9. CURLY BROWN HAIR — 3 curl masses + highlight layer
+        // =================================================================
+        const HY = bobY + jumpBob; // hair offset
+        const HAIR_DARK = '#6B3D1E', HAIR_MID = '#8B5A2A', HAIR_LITE = '#A07040';
+
+        // Main hair mass (covers top + sides of head)
+        ctx.fillStyle = HAIR_DARK;
+        ctx.beginPath();
+        ctx.arc(24, 10 + HY, 16, Math.PI * 0.95, Math.PI * 0.05); // upper arc
+        ctx.fill();
+
+        // Left big curl
+        ctx.beginPath();
+        ctx.arc(10, 15 + HY, 10, Math.PI * 0.4, Math.PI * 1.95);
+        ctx.fill();
+
+        // Right big curl
+        ctx.beginPath();
+        ctx.arc(38, 15 + HY, 10, Math.PI * 1.05, Math.PI * 0.6);
+        ctx.fill();
+
+        // Mid-tone highlights on top
+        ctx.fillStyle = HAIR_MID;
+        ctx.beginPath();
+        ctx.arc(24, 5 + HY, 9, Math.PI, 0);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(17, 8 + HY, 5, Math.PI, 0);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(31, 8 + HY, 5, Math.PI, 0);
+        ctx.fill();
+
+        // Light highlight strand at top-center
+        ctx.fillStyle = HAIR_LITE;
+        ctx.beginPath();
+        ctx.arc(24, 2 + HY, 5, Math.PI, 0);
+        ctx.fill();
+
+        // =================================================================
+        // 10. EYES — big, green, friendly (chibi eyes with shine)
+        // =================================================================
+        const EY = 20 + bobY + jumpBob; // eye vertical center
+
+        // Eye whites
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(16, 12 + bobY, 6, 5);
-        ctx.fillRect(26, 12 + bobY, 6, 5);
-        // Pupils (look slightly forward = toward direction of facing)
-        ctx.fillStyle = '#2C1510';
-        ctx.fillRect(18, 13 + bobY, 3, 3);
-        ctx.fillRect(28, 13 + bobY, 3, 3);
-        // Eye shine
+        ctx.beginPath(); ctx.ellipse(16, EY, 5.5, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(32, EY, 5.5, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Green irises
+        ctx.fillStyle = '#4CAF50';
+        ctx.beginPath(); ctx.ellipse(16, EY, 4, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(32, EY, 4, 4, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Dark pupils
+        ctx.fillStyle = '#1A0A00';
+        ctx.beginPath(); ctx.ellipse(16.5, EY, 2.2, 2.8, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(32.5, EY, 2.2, 2.8, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Eye shine (brings character to life)
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(20, 13 + bobY, 1, 1);
-        ctx.fillRect(30, 13 + bobY, 1, 1);
+        ctx.fillRect(17, EY - 2, 2, 2);
+        ctx.fillRect(33, EY - 2, 2, 2);
 
-        // ---- NOSE ----
-        ctx.fillStyle = '#C8956A';
-        ctx.fillRect(22, 18 + bobY, 4, 3);
+        // Eyelashes (simple strokes)
+        ctx.strokeStyle = '#3B1E08';
+        ctx.lineWidth   = 1;
+        ctx.beginPath(); ctx.moveTo(11, EY - 4); ctx.lineTo(13, EY - 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(21, EY - 4); ctx.lineTo(20, EY - 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(27, EY - 4); ctx.lineTo(28, EY - 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(37, EY - 4); ctx.lineTo(36, EY - 2); ctx.stroke();
 
-        // ---- MOUTH ----
-        // Slight smile when alive
-        ctx.fillStyle = '#9B5A3C';
+        // =================================================================
+        // 11. NOSE & MOUTH
+        // =================================================================
+        const NY = 25 + bobY + jumpBob;
+
+        // Round button nose
+        ctx.fillStyle = '#C8906A';
+        ctx.beginPath(); ctx.arc(24, NY, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#A07050';
+        ctx.fillRect(22, NY + 1, 2, 2);
+        ctx.fillRect(26, NY + 1, 2, 2);
+
+        // Mouth — changes with state
+        const MY = NY + 5;
+        ctx.strokeStyle = '#9B5A3C';
+        ctx.lineWidth   = 1.8;
         if (this.state === 'death') {
-            ctx.fillRect(19, 22 + bobY, 10, 2); // flat line
+            // Sad upside-down arc
+            ctx.beginPath(); ctx.arc(24, MY + 2, 4, Math.PI, 0); ctx.stroke();
+        } else if (this.state === 'attack-melee' || this.state === 'attack-ranged') {
+            // Determined flat line
+            ctx.fillStyle = '#9B5A3C';
+            ctx.fillRect(19, MY, 10, 2);
+        } else if (this.state === 'jump') {
+            // Surprised 'O' mouth
+            ctx.beginPath(); ctx.ellipse(24, MY, 3, 4, 0, 0, Math.PI * 2); ctx.stroke();
         } else {
-            ctx.fillRect(19, 22 + bobY, 3, 2);
-            ctx.fillRect(26, 22 + bobY, 3, 2);
+            // Friendly smile
+            ctx.beginPath(); ctx.arc(24, MY - 1, 4.5, 0.15, Math.PI - 0.15); ctx.stroke();
         }
 
-        // ---- STING GLOW AURA (outer ring when near Orcs) ----
-        if (this.stingGlowing && this.state !== 'attack-melee') {
-            const pulse = 0.3 + Math.sin(t / 200) * 0.2;
+        // =================================================================
+        // 12. STING GLOW AURA — blue outline when Orc/Troll nearby
+        // =================================================================
+        if (this.stingGlowing) {
+            const pulse = 0.2 + Math.sin(t / 200) * 0.12;
             ctx.save();
             ctx.globalAlpha = pulse;
             ctx.strokeStyle = '#00E5FF';
             ctx.lineWidth   = 3;
             ctx.shadowColor = '#00E5FF';
-            ctx.shadowBlur  = 20;
+            ctx.shadowBlur  = 28;
             ctx.beginPath();
-            ctx.ellipse(VW / 2, VH / 2, VW / 2 + 4, VH / 2 + 4, 0, 0, Math.PI * 2);
+            ctx.ellipse(VW / 2, VH / 2 + 4, VW / 2 + 7, VH / 2 + 5, 0, 0, Math.PI * 2);
             ctx.stroke();
+            ctx.restore();
+        }
+
+        // =================================================================
+        // 13. HIT FEEDBACK — red flash + dust cloud + stumble particles
+        // =================================================================
+        if (this.hitFlash > 0) {
+            const progress = this.hitFlash / 12;  // 1 → 0
+
+            // Red overlay flash
+            ctx.save();
+            ctx.globalAlpha = progress * 0.55;
+            ctx.fillStyle   = '#FF2200';
+            ctx.beginPath();
+            ctx.ellipse(VW / 2, VH * 0.55, VW / 2 + 4, VH / 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            // Dust cloud burst
+            ctx.save();
+            ctx.globalAlpha = progress * 0.8;
+            for (let i = 0; i < 7; i++) {
+                const angle = (i / 7) * Math.PI * 2;
+                const r     = (1 - progress) * 22 + 8; // particles fly outward
+                const px    = VW / 2 + Math.cos(angle) * r;
+                const py    = VH * 0.65 + Math.sin(angle) * r * 0.4;
+                const size  = 3 + Math.random() * 3;
+                ctx.fillStyle = i % 2 === 0 ? '#D4B48A' : '#C8956A';
+                ctx.beginPath();
+                ctx.arc(px, py, size * progress, 0, Math.PI * 2);
+                ctx.fill();
+            }
             ctx.restore();
         }
 
@@ -366,7 +604,6 @@ class Platform extends Entity {
 
     draw(ctx, cameraX) {
         const { sx, sy } = this.screenPos(cameraX);
-        // Frustum cull — skip platforms off screen
         if (sx + this.width < 0 || sx > 800) return;
 
         const t = Date.now();
@@ -374,13 +611,12 @@ class Platform extends Entity {
 
         switch (this.theme) {
             case 'forest': {
-                // Earth base
                 ctx.fillStyle = '#3B2510';
                 ctx.fillRect(sx, sy, this.width, this.height);
                 // Root texture lines
                 ctx.fillStyle = '#2A1A0A';
                 for (let i = 0; i < this.width; i += 18)
-                    ctx.fillRect(sx + i, sy + 6, 2, this.height - 6);
+                    ctx.fillRect(sx + i, sy + 8, 2, this.height - 8);
                 // Grass top strip
                 ctx.fillStyle = '#1B4332';
                 ctx.fillRect(sx, sy, this.width, 10);
@@ -395,52 +631,45 @@ class Platform extends Entity {
                 break;
             }
             case 'mines': {
-                // Slate rock
                 ctx.fillStyle = '#1A1D24';
                 ctx.fillRect(sx, sy, this.width, this.height);
-                // Rock cracks
                 ctx.fillStyle = '#252830';
                 for (let i = 0; i < this.width; i += 22)
                     ctx.fillRect(sx + i, sy, 2, this.height);
-                // Cyan crystal veins (pulsing)
                 const crystalGlow = 0.2 + Math.sin(t / 600) * 0.1;
                 ctx.globalAlpha = crystalGlow;
                 ctx.fillStyle   = '#00E5FF';
                 ctx.shadowColor = '#00E5FF';
                 ctx.shadowBlur  = 6;
-                for (let i = 10; i < this.width; i += 45) {
+                for (let i = 10; i < this.width; i += 45)
                     ctx.fillRect(sx + i, sy + 2, 3, this.height - 4);
-                }
                 ctx.globalAlpha = 1;
                 ctx.shadowBlur  = 0;
                 break;
             }
             case 'mountain': {
-                // Treasure gold pile
                 const grad = ctx.createLinearGradient(sx, sy, sx, sy + this.height);
                 grad.addColorStop(0, '#FFD700');
                 grad.addColorStop(0.4, '#DAA520');
                 grad.addColorStop(1, '#7A5800');
                 ctx.fillStyle = grad;
                 ctx.fillRect(sx, sy, this.width, this.height);
-                // Shine sweep
                 ctx.fillStyle = 'rgba(255,255,220,0.35)';
                 ctx.fillRect(sx, sy, this.width, 5);
-                // Coin bumps
                 ctx.fillStyle = '#C8980A';
-                for (let i = 8; i < this.width; i += 16)
-                    ctx.beginPath(), ctx.arc(sx + i, sy + 3, 4, 0, Math.PI * 2), ctx.fill();
+                for (let i = 8; i < this.width; i += 16) {
+                    ctx.beginPath();
+                    ctx.arc(sx + i, sy + 3, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
                 break;
             }
             case 'mordor': {
-                // Volcanic obsidian
                 ctx.fillStyle = '#0C090F';
                 ctx.fillRect(sx, sy, this.width, this.height);
-                // Dark fissures
                 ctx.fillStyle = '#1A0F20';
                 for (let i = 0; i < this.width; i += 28)
                     ctx.fillRect(sx + i, sy, 2, this.height);
-                // Lava crack at bottom edge
                 const lavaAlpha = 0.6 + Math.sin(t / 250) * 0.3;
                 ctx.globalAlpha = lavaAlpha;
                 ctx.fillStyle   = '#FF3A00';
@@ -492,15 +721,12 @@ class Enemy extends Entity {
     }
 
     update() {
-        // Knockback decay
         if (Math.abs(this.knockbackVx) > 0.1) {
             this.x += this.knockbackVx;
             this.knockbackVx *= 0.65;
         } else {
             this.knockbackVx = 0;
         }
-
-        // Patrol
         this.x += this.vx * this.direction;
         if (this.x >= this.patrolMaxX) { this.direction = -1; this.x = this.patrolMaxX; }
         if (this.x <= this.patrolMinX) { this.direction =  1; this.x = this.patrolMinX; }
@@ -512,7 +738,6 @@ class Enemy extends Entity {
 
         const t = Date.now();
         ctx.save();
-        // Flip direction
         ctx.translate(sx + this.width / 2, sy + this.height);
         if (this.direction === -1) ctx.scale(-1, 1);
         ctx.translate(-this.width / 2, -this.height);
@@ -541,14 +766,11 @@ class Enemy extends Entity {
     _drawTree(ctx, t) {
         const wobble = Math.sin(t / 700) * 4;
         const W = this.width, H = this.height;
-        // Gnarled trunk
         ctx.fillStyle = '#4A2E10';
         ctx.fillRect(W / 2 - 7, H * 0.4, 14, H * 0.6);
-        // Knotholes
         ctx.fillStyle = '#2E1A08';
         ctx.beginPath(); ctx.ellipse(W/2 - 3, H * 0.6, 3, 4, 0, 0, Math.PI*2); ctx.fill();
         ctx.beginPath(); ctx.ellipse(W/2 + 4, H * 0.75, 3, 3, 0, 0, Math.PI*2); ctx.fill();
-        // Foliage (wobbles)
         ctx.save();
         ctx.translate(W / 2, H * 0.4);
         ctx.rotate(wobble * Math.PI / 180);
@@ -557,13 +779,10 @@ class Enemy extends Entity {
         ctx.fillStyle = '#2D6A4F';
         ctx.fillRect(-W/2 + 4, -H * 0.38, W - 8, H * 0.3);
         ctx.restore();
-        // Glowing evil eyes
-        ctx.fillStyle = '#FF0000';
-        ctx.shadowColor = '#FF0000'; ctx.shadowBlur = 8;
+        ctx.fillStyle = '#FF0000'; ctx.shadowColor = '#FF0000'; ctx.shadowBlur = 8;
         ctx.fillRect(W/2 - 10, H * 0.28, 6, 6);
         ctx.fillRect(W/2 + 4,  H * 0.28, 6, 6);
         ctx.shadowBlur = 0;
-        // Root claws
         ctx.fillStyle = '#3A2008';
         ctx.fillRect(W/2 - 14, H - 6, 8, 6);
         ctx.fillRect(W/2 + 6,  H - 6, 8, 6);
@@ -572,38 +791,30 @@ class Enemy extends Entity {
     _drawOrc(ctx, t) {
         const W = this.width, H = this.height;
         const stomp = Math.abs(this.knockbackVx) > 1 ? Math.sin(t / 40) * 4 : 0;
-        // Legs
         ctx.fillStyle = '#2A3520';
-        ctx.fillRect(W/2 - 10, H * 0.65 + stomp,  10, H * 0.35);
-        ctx.fillRect(W/2,      H * 0.65 - stomp,  10, H * 0.35);
-        // Body
+        ctx.fillRect(W/2 - 10, H * 0.65 + stomp, 10, H * 0.35);
+        ctx.fillRect(W/2,      H * 0.65 - stomp, 10, H * 0.35);
         ctx.fillStyle = '#3A5E30';
         ctx.fillRect(W/2 - 13, H * 0.3, 26, H * 0.38);
-        // Iron shoulder pads
         ctx.fillStyle = '#607080';
         ctx.fillRect(W/2 - 16, H * 0.28, 8, 10);
         ctx.fillRect(W/2 + 8,  H * 0.28, 8, 10);
-        // Iron shield (left side)
         ctx.fillStyle = '#4E606E';
         ctx.fillRect(0, H * 0.3, 8, H * 0.35);
         ctx.fillStyle = '#6A7E8C';
         ctx.fillRect(1, H * 0.32, 6, H * 0.3);
-        ctx.fillStyle = '#A0B0B8'; // shield boss
+        ctx.fillStyle = '#A0B0B8';
         ctx.beginPath(); ctx.arc(4, H * 0.47, 3, 0, Math.PI * 2); ctx.fill();
-        // Steel helmet
         ctx.fillStyle = '#607080';
         ctx.beginPath(); ctx.ellipse(W/2, H * 0.18, 14, 12, 0, Math.PI, 0); ctx.fill();
         ctx.fillStyle = '#505E6C';
-        ctx.fillRect(W/2 - 14, H * 0.2, 28, 6); // helm rim
-        // Face (green, angry)
+        ctx.fillRect(W/2 - 14, H * 0.2, 28, 6);
         ctx.fillStyle = '#3A5E30';
         ctx.fillRect(W/2 - 10, H * 0.2, 20, 14);
-        // Eyes (red glowing)
         ctx.fillStyle = '#FF2200'; ctx.shadowColor = '#FF2200'; ctx.shadowBlur = 5;
         ctx.fillRect(W/2 - 8, H * 0.22, 5, 5);
         ctx.fillRect(W/2 + 3, H * 0.22, 5, 5);
         ctx.shadowBlur = 0;
-        // Tusks
         ctx.fillStyle = '#EEE8D0';
         ctx.fillRect(W/2 - 6, H * 0.31, 4, 7);
         ctx.fillRect(W/2 + 2, H * 0.31, 4, 7);
@@ -612,29 +823,23 @@ class Enemy extends Entity {
     _drawTroll(ctx, t) {
         const W = this.width, H = this.height;
         const bob = Math.sin(t / 400) * 2;
-        // Legs (thick)
         ctx.fillStyle = '#505050';
         ctx.fillRect(W/2 - 14, H * 0.62 + bob, 14, H * 0.38);
         ctx.fillRect(W/2,      H * 0.62 - bob, 14, H * 0.38);
-        // Body (huge)
         ctx.fillStyle = '#6A6A6A';
         ctx.fillRect(W/2 - 18, H * 0.3, 36, H * 0.36);
-        // Club arm
         ctx.fillStyle = '#5A5A5A';
-        ctx.fillRect(W - 8, H * 0.25, 12, 10); // upper arm
-        ctx.fillStyle = '#4A2E10'; // club handle
+        ctx.fillRect(W - 8, H * 0.25, 12, 10);
+        ctx.fillStyle = '#4A2E10';
         ctx.fillRect(W - 4, H * 0.1, 8, H * 0.28);
-        ctx.fillStyle = '#3A2008'; // club head
+        ctx.fillStyle = '#3A2008';
         ctx.fillRect(W - 12, 0, 20, 16);
-        // Head
         ctx.fillStyle = '#7A7A7A';
         ctx.beginPath(); ctx.arc(W/2, H * 0.22, 18, 0, Math.PI * 2); ctx.fill();
-        // Eyes
         ctx.fillStyle = '#FF5500'; ctx.shadowColor = '#FF5500'; ctx.shadowBlur = 6;
         ctx.fillRect(W/2 - 12, H * 0.15, 8, 8);
         ctx.fillRect(W/2 + 4,  H * 0.15, 8, 8);
         ctx.shadowBlur = 0;
-        // Nose
         ctx.fillStyle = '#606060';
         ctx.beginPath(); ctx.arc(W/2, H * 0.24, 5, 0, Math.PI * 2); ctx.fill();
     }
@@ -642,19 +847,16 @@ class Enemy extends Entity {
     _drawSmaug(ctx, t) {
         const W = this.width, H = this.height;
         const float = Math.sin(t / 500) * 6;
-        // Body
         ctx.fillStyle = '#7A0000';
         ctx.beginPath();
         ctx.ellipse(W/2, H * 0.5 + float, W * 0.4, H * 0.3, 0, 0, Math.PI * 2);
         ctx.fill();
-        // Wing (left)
         ctx.fillStyle = '#5A0000';
         ctx.beginPath();
         ctx.moveTo(W * 0.3, H * 0.4 + float);
         ctx.lineTo(-10, H * 0.1 + float);
         ctx.lineTo(W * 0.1, H * 0.6 + float);
         ctx.closePath(); ctx.fill();
-        // Spines
         ctx.fillStyle = '#FF4500';
         for (let i = 0; i < 4; i++) {
             ctx.beginPath();
@@ -663,23 +865,20 @@ class Enemy extends Entity {
             ctx.lineTo(W * 0.35 + i * 14, H * 0.32 + float);
             ctx.fill();
         }
-        // Head
         ctx.fillStyle = '#8B0000';
         ctx.beginPath();
         ctx.moveTo(W * 0.65, H * 0.35 + float);
         ctx.lineTo(W + 10,   H * 0.45 + float);
         ctx.lineTo(W * 0.65, H * 0.58 + float);
         ctx.closePath(); ctx.fill();
-        // Eye
         ctx.fillStyle = '#FFD700'; ctx.shadowColor = '#FFD700'; ctx.shadowBlur = 10;
         ctx.beginPath(); ctx.arc(W * 0.82, H * 0.44 + float, 5, 0, Math.PI * 2); ctx.fill();
         ctx.shadowBlur = 0;
-        // Fire breath
         const fAlpha = 0.5 + Math.sin(t / 80) * 0.3;
         ctx.globalAlpha = fAlpha;
-        ctx.fillStyle   = '#FF4500'; ctx.shadowColor = '#FF4500'; ctx.shadowBlur = 18;
+        ctx.fillStyle = '#FF4500'; ctx.shadowColor = '#FF4500'; ctx.shadowBlur = 18;
         ctx.beginPath();
-        ctx.moveTo(W + 8, H * 0.44 + float);
+        ctx.moveTo(W + 8,  H * 0.44 + float);
         ctx.lineTo(W + 45, H * 0.38 + float);
         ctx.lineTo(W + 40, H * 0.52 + float);
         ctx.closePath(); ctx.fill();
@@ -691,7 +890,6 @@ class Enemy extends Entity {
         const cx = W / 2, cy = H / 2;
         const pulse = Math.sin(t / 300) * 6;
 
-        // Outer fire aura
         const aura = ctx.createRadialGradient(cx, cy, 5, cx, cy, 38 + pulse);
         aura.addColorStop(0,   'rgba(255,80,0,0.9)');
         aura.addColorStop(0.6, 'rgba(180,30,0,0.5)');
@@ -699,21 +897,17 @@ class Enemy extends Entity {
         ctx.fillStyle = aura;
         ctx.beginPath(); ctx.arc(cx, cy, 44 + pulse, 0, Math.PI * 2); ctx.fill();
 
-        // Eye white (ellipse, orange glow)
-        ctx.fillStyle   = '#FF8C00'; ctx.shadowColor = '#FF6000'; ctx.shadowBlur = 20;
+        ctx.fillStyle = '#FF8C00'; ctx.shadowColor = '#FF6000'; ctx.shadowBlur = 20;
         ctx.beginPath(); ctx.ellipse(cx, cy, 32, 22, 0, 0, Math.PI * 2); ctx.fill();
 
-        // Slit pupil
-        ctx.fillStyle  = '#100000'; ctx.shadowBlur = 0;
+        ctx.fillStyle = '#100000'; ctx.shadowBlur = 0;
         ctx.beginPath(); ctx.ellipse(cx, cy, 9, 20, 0, 0, Math.PI * 2); ctx.fill();
 
-        // Inner iris ring
         ctx.strokeStyle = '#FF2200'; ctx.lineWidth = 2;
         ctx.shadowColor = '#FF2200'; ctx.shadowBlur = 8;
         ctx.beginPath(); ctx.ellipse(cx, cy, 30, 20, 0, 0, Math.PI * 2); ctx.stroke();
         ctx.shadowBlur = 0;
 
-        // Rotating fire sparks
         for (let i = 0; i < 10; i++) {
             const angle = (t / 250 + i * (Math.PI * 2 / 10));
             const r     = 36 + pulse;
@@ -726,7 +920,7 @@ class Enemy extends Entity {
 }
 
 // --------------------------------------------------------------------------
-// Projectile — rock (parabolic) or slash arc (short-lived)
+// Projectile — rock (parabolic arc) or slash (short-lived melee)
 // --------------------------------------------------------------------------
 class Projectile extends Entity {
     constructor(x, y, vx, vy, type, source) {
@@ -734,8 +928,8 @@ class Projectile extends Entity {
         super(x, y, size, size);
         this.vx      = vx;
         this.vy      = vy || 0;
-        this.type    = type;   // 'rock' | 'slash'
-        this.source  = source; // 'player' | 'enemy'
+        this.type    = type;
+        this.source  = source;
         this.alive   = true;
         this.maxLife = type === 'slash' ? 10 : 140;
         this.frame   = 0;
@@ -746,9 +940,9 @@ class Projectile extends Entity {
         if (this.frame >= this.maxLife) { this.alive = false; return; }
         this.x += this.vx;
         if (this.type === 'rock') {
-            this.vy += gravity; // parabolic arc
+            this.vy += gravity;
             this.y  += this.vy;
-            if (this.y < -50) this.alive = false; // off screen bottom
+            if (this.y < -80) this.alive = false;
         }
     }
 
@@ -765,7 +959,6 @@ class Projectile extends Entity {
             ctx.beginPath();
             ctx.arc(sx + 5, sy + 5, 5, 0, Math.PI * 2);
             ctx.fill();
-            // Highlight
             ctx.fillStyle = '#C0C0C0';
             ctx.beginPath();
             ctx.arc(sx + 3, sy + 3, 2, 0, Math.PI * 2);
@@ -777,9 +970,9 @@ class Projectile extends Entity {
             ctx.save();
             ctx.globalAlpha = 1 - progress;
             ctx.strokeStyle = '#FFE566';
-            ctx.lineWidth   = 3;
+            ctx.lineWidth   = 2.5;
             ctx.shadowColor = '#FFD700';
-            ctx.shadowBlur  = 16;
+            ctx.shadowBlur  = 12;
             ctx.beginPath();
             ctx.arc(sx + 24, sy + 14, 22, -Math.PI * 0.5, Math.PI * 0.5);
             ctx.stroke();
@@ -795,7 +988,7 @@ class Projectile extends Entity {
 }
 
 // --------------------------------------------------------------------------
-// Collectible — floating coin or gem
+// Collectible — floating coin or Arkenstone gem
 // --------------------------------------------------------------------------
 class Collectible extends Entity {
     constructor(type, x, y, value) {
@@ -822,25 +1015,22 @@ class Collectible extends Entity {
             ctx.beginPath();
             ctx.arc(sx + 8, sy + 8 + floatY, 8, 0, Math.PI * 2);
             ctx.fill();
-            // Inner face
             ctx.fillStyle = `rgba(255,220,50,${shine})`;
             ctx.beginPath();
             ctx.arc(sx + 8, sy + 8 + floatY, 5, 0, Math.PI * 2);
             ctx.fill();
-            // G letter
-            ctx.fillStyle   = '#B8860B';
-            ctx.font        = 'bold 9px monospace';
-            ctx.textAlign   = 'center';
+            ctx.fillStyle    = '#B8860B';
+            ctx.font         = 'bold 9px monospace';
+            ctx.textAlign    = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText('G', sx + 8, sy + 8 + floatY);
-            ctx.shadowBlur  = 0;
+            ctx.shadowBlur   = 0;
 
         } else if (this.type === 'gem') {
             const glow      = 0.5 + Math.sin(t / 350) * 0.35;
             ctx.fillStyle   = `rgba(0,229,255,${glow})`;
             ctx.shadowColor = '#00E5FF';
             ctx.shadowBlur  = 14 + glow * 10;
-            // Diamond shape
             ctx.beginPath();
             ctx.moveTo(sx + 9,  sy + floatY);
             ctx.lineTo(sx + 18, sy + 9 + floatY);
@@ -848,7 +1038,6 @@ class Collectible extends Entity {
             ctx.lineTo(sx + 0,  sy + 9 + floatY);
             ctx.closePath();
             ctx.fill();
-            // Highlight facet
             ctx.fillStyle = 'rgba(255,255,255,0.5)';
             ctx.beginPath();
             ctx.moveTo(sx + 9,  sy + floatY);
@@ -856,7 +1045,7 @@ class Collectible extends Entity {
             ctx.lineTo(sx + 9,  sy + 9 + floatY);
             ctx.closePath();
             ctx.fill();
-            ctx.shadowBlur  = 0;
+            ctx.shadowBlur = 0;
         }
         ctx.restore();
     }
@@ -877,11 +1066,9 @@ class Flag extends Entity {
         const wave       = Math.sin(t / 250) * 6;
 
         ctx.save();
-        // Pole
         ctx.fillStyle = '#BDBDBD';
         ctx.fillRect(sx + 2, sy, 4, this.height);
 
-        // Waving banner
         ctx.fillStyle   = '#39FF14';
         ctx.shadowColor = '#39FF14';
         ctx.shadowBlur  = 12;

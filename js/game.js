@@ -267,10 +267,10 @@ class Game {
             }
         }
 
-        // --- Enemy contact damage ---
+        // --- Enemy contact damage (discrete 12hp hit = 3-4 hits to die at 40HP) ---
         this.enemies.forEach(e => {
             if (this._aabb(p, e)) {
-                p.takeDamage(0.4);
+                p.takeDamage(12, e.x + e.width / 2); // pass attacker center for knockback direction
                 this._updateHUD();
                 if (p.health <= 0) this._gameOver();
             }
