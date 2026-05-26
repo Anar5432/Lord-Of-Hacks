@@ -5,6 +5,15 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Instantiate game instance
     const game = new Game();
+    window.audioManager = new AudioManager();
+    
+    const initAudio = () => {
+        if (window.audioManager) window.audioManager.init();
+        window.removeEventListener('click', initAudio);
+        window.removeEventListener('keydown', initAudio);
+    };
+    window.addEventListener('click', initAudio);
+    window.addEventListener('keydown', initAudio);
     
     // UI Elements
     const startScreen = document.getElementById('start-screen');
@@ -85,6 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Start Button Action
     startButton.addEventListener('click', () => {
+        if (window.audioManager) window.audioManager.init();
         triggerFadeTransition(() => {
             startScreen.classList.add('hidden');
             gameContainer.classList.remove('hidden');

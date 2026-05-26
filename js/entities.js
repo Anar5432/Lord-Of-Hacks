@@ -50,6 +50,7 @@ class Player extends Entity {
         this.invincibleTimer = 0;       // invincibility frames after a hit
         this.hitFlash        = 0;       // flash frames for hit feedback (12 frames)
         this.knockbackVx     = 0;       // player stumble-back on hit
+        this.isInvisible     = false;   // Ring invisibility state
 
         this.setupStats();
     }
@@ -78,6 +79,7 @@ class Player extends Entity {
         if (this.isGrounded) {
             this.vy = 11;
             this.isGrounded = false;
+            if (window.audioManager) window.audioManager.playJump();
         }
     }
 
@@ -87,6 +89,7 @@ class Player extends Entity {
         this.health          = Math.max(0, this.health - amount);
         this.invincibleTimer = 60;  // 1 s immunity
         this.hitFlash        = 12;  // 12-frame red flash
+        if (window.audioManager) window.audioManager.playHit();
         // Full knockback — stumble backward from attacker
         if (attackerX !== undefined) {
             this.knockbackVx = (this.x > attackerX ? 1 : -1) * 5;
@@ -149,6 +152,22 @@ class Player extends Entity {
             ctx.translate(VW / 2, VH * 0.65);
             ctx.rotate(Math.PI / 2);
             ctx.translate(-VH * 0.65, -VW / 2);
+        }
+
+        // --- Ring Invisibility Visuals (Transparency + Feet Ripple) ---
+        if (this.isInvisible && this.state !== 'death') {
+            // Draw golden ripple at feet
+            ctx.save();
+            ctx.globalAlpha = 0.4 + Math.sin(t / 250) * 0.15;
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.ellipse(VW / 2, VH - 1, 16 + Math.sin(t / 250) * 3, 4 + Math.sin(t / 250) * 1, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+            
+            // Turn character transparent
+            ctx.globalAlpha = 0.35;
         }
 
         // Frame indices: 0 = idle, 1 = jump, 2 = run, 3 = melee, 4 = ranged, 5 = death
@@ -226,6 +245,24 @@ class Player extends Entity {
             ctx.fillStyle = p > 0.6 ? '#FFFFFF' : '#FF2200';
             ctx.beginPath();
             ctx.ellipse(VW / 2, VH * 0.5, VW / 2 + 6, VH / 2 + 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Draw hovering One Ring above head if invisible
+        if (this.isInvisible && this.state !== 'death') {
+            ctx.save();
+            ctx.globalAlpha = 1.0;
+            ctx.shadowColor = '#FFD700';
+            ctx.shadowBlur = 10;
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 2;
+            const ringY = -14 + Math.sin(t / 250) * 3; // bobbing
+            ctx.beginPath();
+            ctx.arc(VW / 2, ringY, 5, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(VW / 2 + 2, ringY - 2, 1.2, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
         }

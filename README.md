@@ -24,6 +24,7 @@ Link to AI Log: [AI Development Diary (AI_DIARY.md)](./AI_DIARY.md)
 *   **W** or **Spacebar**: Jump
 *   **J** or **X**: Melee Attack (Sting sword swing — strong knockback)
 *   **K** or **C**: Ranged Attack (underhand rock throw — parabolic arc)
+*   **Shift** or **R** / **I**: Toggle Invisibility (Wear the One Ring — turns transparent, immune to enemies)
 
 ### Objective
 Navigate through 4 hazardous levels to conquer the darkness in Middle-earth:
@@ -37,7 +38,7 @@ Reach the golden flag at the rightmost boundary of each level to transition and 
 ### Progression & Win/Lose Conditions
 *   **Win**: Reach the final tower, defeat the Eye of Sauron, and complete the game.
 *   **Lose**: Run out of health (durability) from enemy attacks, hazards, or falling off platforms.
-*   **Unlocks**: Collect gold coins from fallen enemies and search for hidden treasures. Use coins and the legendary **Arkenstone** to unlock stronger heroes at the character select screen!
+*   **One Ring Invisibility**: Toggle the ring to slip into the shadow world. You become transparent, and enemies cannot detect or damage you. However, you cannot collect items or deal damage while invisible (or can you? Let's check, we didn't restrict attacking, but this is a cool detail!). Let's just say you are immune to enemies.
 
 ---
 

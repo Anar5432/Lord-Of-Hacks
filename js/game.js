@@ -65,6 +65,14 @@ class Game {
             // Ranged (K or C)
             if (['k', 'K', 'c', 'C'].includes(e.key) && this.player)
                 this._triggerRanged();
+
+            // Invisibility / One Ring (Shift, R, or I)
+            if (['Shift', 'r', 'R', 'i', 'I'].includes(e.key) && this.player && this.player.state !== 'death') {
+                this.player.isInvisible = !this.player.isInvisible;
+                if (window.audioManager) {
+                    window.audioManager.playRingToggle(this.player.isInvisible);
+                }
+            }
         });
 
         window.addEventListener('keyup', (e) => {
@@ -82,6 +90,8 @@ class Game {
         p.lastAttackTime = now;
         p.state       = 'attack-melee';
         p.attackTimer = 22;
+
+        if (window.audioManager) window.audioManager.playMelee();
 
         // Spawn slash visual — placed in front of player
         const slashX = p.direction === 1 ? p.x + p.width : p.x - 44;
@@ -105,6 +115,8 @@ class Game {
         p.lastAttackTime = now;
         p.state       = 'attack-ranged';
         p.attackTimer = 22;
+
+        if (window.audioManager) window.audioManager.playRanged();
 
         // Rock: starts at player center, travels in arc
         this.projectiles.push(new Projectile(
@@ -218,6 +230,18 @@ class Game {
         p.y  += p.vy;
         this._resolveVertical();
 
+        // Footstep sound timer when player is running on ground
+        if (p.state === 'run' && p.isGrounded) {
+            if (!this.stepTimer) this.stepTimer = 0;
+            this.stepTimer--;
+            if (this.stepTimer <= 0) {
+                if (window.audioManager) window.audioManager.playStep();
+                this.stepTimer = 22; // play every 22 frames (~360ms)
+            }
+        } else {
+            this.stepTimer = 0;
+        }
+
         // --- Enemy AI ---
         this.enemies.forEach(e => e.update());
 
@@ -264,17 +288,20 @@ class Game {
                 item.alive = false;
                 this.collectibles.splice(i, 1);
                 this._updateHUD();
+                if (window.audioManager) window.audioManager.playCoin();
             }
         }
 
         // --- Enemy contact damage (discrete 12hp hit = 3-4 hits to die at 40HP) ---
-        this.enemies.forEach(e => {
-            if (this._aabb(p, e)) {
-                p.takeDamage(12, e.x + e.width / 2); // pass attacker center for knockback direction
-                this._updateHUD();
-                if (p.health <= 0) this._gameOver();
-            }
-        });
+        if (!p.isInvisible) {
+            this.enemies.forEach(e => {
+                if (this._aabb(p, e)) {
+                    p.takeDamage(12, e.x + e.width / 2); // pass attacker center for knockback direction
+                    this._updateHUD();
+                    if (p.health <= 0) this._gameOver();
+                }
+            });
+        }
 
         // --- Flag / level complete ---
         if (this.flag && this._aabb(p, this.flag)) this._levelComplete();
