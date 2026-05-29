@@ -5,6 +5,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Instantiate game instance
     const game = new Game();
+    game.currentLevel = 4; // Force Level 4 directly
     window.audioManager = new AudioManager();
     
     const initAudio = () => {
@@ -217,7 +218,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateLevelSelectorUI() {
-        const unlockedLevels = JSON.parse(localStorage.getItem('lotr_unlocked')) || [1];
+        let unlockedLevels = [4];
+        try {
+            const stored = localStorage.getItem('lotr_unlocked');
+            if (stored) unlockedLevels = JSON.parse(stored);
+        } catch (e) {
+            console.error("Failed to parse unlocked levels:", e);
+        }
         levelBtns.forEach(btn => {
             const lvl = parseInt(btn.getAttribute('data-level'));
             if (unlockedLevels.includes(lvl)) {
