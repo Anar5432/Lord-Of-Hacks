@@ -1,3 +1,22 @@
+// Safe localStorage fallback wrapper
+const SafeStorage = {
+    _data: {},
+    getItem(key) {
+        try {
+            return localStorage.getItem(key);
+        } catch (e) {
+            return this._data[key] || null;
+        }
+    },
+    setItem(key, value) {
+        try {
+            localStorage.setItem(key, value);
+        } catch (e) {
+            this._data[key] = String(value);
+        }
+    }
+};
+
 // ==========================================================================
 // Lord of the Hacks - Main Screen Orchestrator & DOM Handlers
 // ==========================================================================
@@ -156,11 +175,11 @@ document.addEventListener('DOMContentLoaded', () => {
             currentCharacter: game.selectedChar,
             unlockedCharacters: getUnlockedCharactersList()
         };
-        localStorage.setItem('lotr_game_state', JSON.stringify(state));
+        SafeStorage.setItem('lotr_game_state', JSON.stringify(state));
     }
 
     function loadSavedState() {
-        const rawState = localStorage.getItem('lotr_game_state');
+        const rawState = SafeStorage.getItem('lotr_game_state');
         if (rawState) {
             const state = JSON.parse(rawState);
             game.coins = state.coins || 0;
@@ -220,7 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateLevelSelectorUI() {
         let unlockedLevels = [1];
         try {
-            const stored = localStorage.getItem('lotr_unlocked');
+            const stored = SafeStorage.getItem('lotr_unlocked');
             if (stored) unlockedLevels = JSON.parse(stored);
         } catch (e) {
             console.error("Failed to parse unlocked levels:", e);

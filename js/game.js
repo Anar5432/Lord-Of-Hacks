@@ -1,3 +1,22 @@
+// Safe localStorage fallback wrapper
+const SafeStorage = {
+    _data: {},
+    getItem(key) {
+        try {
+            return localStorage.getItem(key);
+        } catch (e) {
+            return this._data[key] || null;
+        }
+    },
+    setItem(key, value) {
+        try {
+            localStorage.setItem(key, value);
+        } catch (e) {
+            this._data[key] = String(value);
+        }
+    }
+};
+
 // ==========================================================================
 // Lord of the Hacks â€” Game Engine (Canvas API)
 // Handles: game loop, physics, AABB collisions, camera, input, rendering
@@ -1187,10 +1206,10 @@ class Game {
     _gameOver() {
         this.stop();
         const score   = this.coins * 10;
-        let savedHi = parseInt(localStorage.getItem('lotr_hiScore') || '0');
+        let savedHi = parseInt(SafeStorage.getItem('lotr_hiScore') || '0');
         if (isNaN(savedHi)) savedHi = 0;
         const hiScore = Math.max(score, savedHi);
-        localStorage.setItem('lotr_hiScore', hiScore);
+        SafeStorage.setItem('lotr_hiScore', hiScore);
 
         const el = document.getElementById('summary-coins');
         const hs = document.getElementById('summary-high-score');
@@ -1206,21 +1225,21 @@ class Game {
         const nextLevel = this.currentLevel + 1;
 
         // Save coins to persistent storage
-        const saved = parseInt(localStorage.getItem('lotr_totalCoins') || '0');
-        localStorage.setItem('lotr_totalCoins', saved + this.coins);
+        const saved = parseInt(SafeStorage.getItem('lotr_totalCoins') || '0');
+        SafeStorage.setItem('lotr_totalCoins', saved + this.coins);
 
         // Unlock next level
         if (LEVELS_CONFIG[nextLevel]) {
             let unlocked = [1];
             try {
-                const stored = localStorage.getItem('lotr_unlocked');
+                const stored = SafeStorage.getItem('lotr_unlocked');
                 if (stored) unlocked = JSON.parse(stored);
             } catch (e) {
                 console.error("Failed to parse unlocked levels:", e);
             }
             if (!unlocked.includes(nextLevel)) {
                 unlocked.push(nextLevel);
-                localStorage.setItem('lotr_unlocked', JSON.stringify(unlocked));
+                SafeStorage.setItem('lotr_unlocked', JSON.stringify(unlocked));
             }
         }
 
