@@ -108,4 +108,16 @@ This log documents the AI-assisted development workflow for the Vanilla JS Video
 ![alt text](design2.jpeg)
 
 # The first referance image:
+![alt text](d5af83c9-b1d4-4664-9d52-f530d26a3674.jpg)
+![alt text](447a194c-a551-4099-b3e9-a811d25f26f9.png)
+![alt text](cca4db0f-d78c-4a1e-915e-13471b147501.png)
+
+## The image create by Gemini for game:
 ![alt text](image.png)
+![alt text](image-1.png)
+
+## We have planned to make a game 3 caracters but becous of complexity we decided to make a game with only 1 character:
+- Re-indexed the level configuration from Level 4 to Level 1 in `js/levels.js`, `js/game.js`, `js/main.js`, and `index.html`, which properly updates the HUD to show `LEVEL: 1` during gameplay.
+- Refactored the `Player` class in `js/entities.js` to strictly contain the Hobbit's dimensions (`24x36`) and base stats, removing unused stubs and switch cases for Ranger and Wizard heroes.
+- Cleaned up the character selection card on the start screen (`index.html`) to show only the Hobbit hero card, aligning the user interface with the codebase scope.
+- Aligned `README.md` and `AI_DIARY.md` descriptions to ensure all mentions of level indexing and playable characters are consistent throughout.
