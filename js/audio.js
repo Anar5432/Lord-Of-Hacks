@@ -133,4 +133,14 @@ class AudioManager {
             osc.stop(now + i * 0.045 + duration);
         });
     }
+
+    // Nazgul Rider Scream: high pitch screech
+    playScream() {
+        this._playTone(950, 1800, 0.35, 'sawtooth', 0.07);
+    }
+
+    // Boss Explosion/Tower Collapse: low rumble sawtooth sweep
+    playExplosion() {
+        this._playTone(180, 30, 0.95, 'sawtooth', 0.25);
+    }
 }
