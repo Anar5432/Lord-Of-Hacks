@@ -34,10 +34,11 @@ class Game {
         this.keys = {};
 
         // Persistent state
-        this.currentLevel   = 1;
+        this.currentLevel   = 4;
         this.coins          = 0;
         this.hasArkenstone  = false;
         this.selectedChar   = 'Hobbit';
+        this.lives          = 3;
 
         this._setupInput();
     }
@@ -130,7 +131,10 @@ class Game {
     }
 
     _onEnemyHit(enemy) {
-        if (enemy.health <= 0) {
+        enemy.hitFlash = 12;
+        if (enemy.health <= 0 && enemy.state !== 'death') {
+            enemy.state = 'death';
+            enemy.deathTimer = 40;
             this.coins += 10;
             this._updateHUD();
         }
@@ -152,9 +156,10 @@ class Game {
         this.cameraX      = 0;
         this.coins        = 0;
         this.worldWidth   = cfg.width;
+        this.lives        = 3;
 
         cfg.platforms.forEach(p =>
-            this.platforms.push(new Platform(p.x, p.y, p.width, p.height, cfg.theme))
+            this.platforms.push(new Platform(p.x, p.y, p.width, p.height, cfg.theme, p.type || 'stone'))
         );
         cfg.enemies.forEach(e =>
             this.enemies.push(new Enemy(e.type, e.x, e.y, e.patrolMinX, e.patrolMaxX))
@@ -203,7 +208,7 @@ class Game {
         if (!this.player) return;
 
         const p     = this.player;
-        const SPEED = 4;
+        const SPEED = (p.slowTimer && p.slowTimer > 0) ? 2 : 4;
 
         // --- Player state machine ---
         p.updateState();
@@ -219,7 +224,20 @@ class Game {
             p.vx = 0;
         }
 
-        p.x += p.vx;
+        // --- Platform movement & Player riding ---
+        let riderDeltaX = 0;
+        this.platforms.forEach(pl => {
+            if (pl.type === 'suspended-swing') {
+                const prevX = pl.x;
+                pl.x = pl.baseX + Math.sin(Date.now() / 800) * 45;
+                const dx = pl.x - prevX;
+                if (p.isGrounded && p.activePlatform === pl) {
+                    riderDeltaX = dx;
+                }
+            }
+        });
+
+        p.x += p.vx + riderDeltaX;
         this._resolveHorizontal();
 
         // Left world boundary
@@ -243,7 +261,53 @@ class Game {
         }
 
         // --- Enemy AI ---
-        this.enemies.forEach(e => e.update());
+        this.enemies.forEach(e => e.update(this.player, this));
+
+        // --- Nazgul screams update ---
+        if (this.screams) {
+            for (let i = this.screams.length - 1; i >= 0; i--) {
+                const s = this.screams[i];
+                s.r += 3; // expand radius
+                if (s.r >= s.maxR) {
+                    this.screams.splice(i, 1);
+                    continue;
+                }
+                
+                // Hit check with player
+                if (!p.isInvisible && p.health > 0) {
+                    const dx = p.x + p.width/2 - s.x;
+                    const dy = p.y + p.height/2 - s.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < s.r + 15 && dist > s.r - 15) {
+                        p.slowTimer = 90; // slow player for 1.5s
+                    }
+                }
+            }
+        }
+
+        // --- Burning patches update ---
+        if (this.burningPatches) {
+            for (let i = this.burningPatches.length - 1; i >= 0; i--) {
+                const patch = this.burningPatches[i];
+                patch.timeLeft--;
+                if (patch.timeLeft <= 0) {
+                    this.burningPatches.splice(i, 1);
+                    continue;
+                }
+                
+                // Contact/tick damage to player (every 12 frames)
+                if (!p.isInvisible && p.health > 0) {
+                    if (p.x + p.width > patch.x && p.x < patch.x + patch.width &&
+                        Math.abs(p.y - patch.y) < 10) {
+                        if (this.animationFrameId % 12 === 0 || Math.floor(Math.random() * 12) === 0) {
+                            p.takeDamage(2, patch.x + patch.width/2);
+                            this._updateHUD();
+                            if (p.health <= 0) this.playerDie();
+                        }
+                    }
+                }
+            }
+        }
 
         // --- Projectile physics ---
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
@@ -251,30 +315,74 @@ class Game {
             proj.update(this.gravity);
             if (!proj.alive) { this.projectiles.splice(i, 1); continue; }
 
+            // Fireball vs platforms hit
+            if (proj.type === 'fireball') {
+                for (let j = 0; j < this.platforms.length; j++) {
+                    const pl = this.platforms[j];
+                    if (this._aabb(proj, pl)) {
+                        // Explode! Spawn a burning patch on the platform.
+                        if (!this.burningPatches) this.burningPatches = [];
+                        this.burningPatches.push({
+                            x: proj.x - 20,
+                            y: pl.y + pl.height,
+                            width: 40,
+                            height: 12,
+                            timeLeft: 180
+                        });
+                        proj.alive = false;
+                        if (window.audioManager && window.audioManager.playHit) window.audioManager.playHit();
+                        break;
+                    }
+                }
+            }
+
             // Rock vs enemy hit
             if (proj.type === 'rock' && proj.source === 'player') {
                 for (let j = this.enemies.length - 1; j >= 0; j--) {
-                    if (this._aabb(proj, this.enemies[j])) {
-                        this.enemies[j].health -= 5;
-                        this._onEnemyHit(this.enemies[j]);
+                    const e = this.enemies[j];
+                    if (e.state !== 'death' && this._aabb(proj, e)) {
+                        e.health -= 5;
+                        this._onEnemyHit(e);
                         proj.alive = false;
                         break;
                     }
                 }
             }
+            // Enemy projectile vs player hit
+            else if (proj.source === 'enemy' && !p.isInvisible && p.health > 0 && !p.invincibleTimer) {
+                if (this._aabb(proj, p)) {
+                    p.takeDamage(10, proj.x);
+                    this._updateHUD();
+                    proj.alive = false;
+                    this.projectiles.splice(i, 1);
+                    if (p.health <= 0) this.playerDie();
+                    continue;
+                }
+            }
         }
 
-        // --- Remove dead enemies ---
+        // --- Remove dead enemies after death collapse finishes ---
         for (let i = this.enemies.length - 1; i >= 0; i--) {
-            if (this.enemies[i].health <= 0) {
-                this.enemies.splice(i, 1);
+            const e = this.enemies[i];
+            if (e.health <= 0) {
+                if (e.state !== 'death') {
+                    e.state = 'death';
+                    e.deathTimer = e.type === 'EyeOfSauron' ? 240 : 40;
+                }
+                if (e.deathTimer <= 0) {
+                    this.enemies.splice(i, 1);
+                    if (e.type === 'EyeOfSauron') {
+                        this._levelComplete();
+                    }
+                }
             }
         }
 
         // --- Sting proximity (Hobbit passive) ---
         if (p.charType === 'Hobbit') {
             p.stingGlowing = this.enemies.some(e =>
-                (e.type === 'Orc' || e.type === 'Troll') &&
+                e.state !== 'death' &&
+                (e.type === 'Orc' || e.type === 'Troll' || e.type === 'UrukHai') &&
                 Math.abs((e.x + e.width / 2) - (p.x + p.width / 2)) < 260
             );
         }
@@ -295,19 +403,22 @@ class Game {
         // --- Enemy contact damage (discrete 12hp hit = 3-4 hits to die at 40HP) ---
         if (!p.isInvisible) {
             this.enemies.forEach(e => {
-                if (this._aabb(p, e)) {
+                if (e.state !== 'death' && this._aabb(p, e)) {
                     p.takeDamage(12, e.x + e.width / 2); // pass attacker center for knockback direction
                     this._updateHUD();
-                    if (p.health <= 0) this._gameOver();
+                    if (p.health <= 0) this.playerDie();
                 }
             });
         }
 
         // --- Flag / level complete ---
-        if (this.flag && this._aabb(p, this.flag)) this._levelComplete();
+        if (this.flag && this._aabb(p, this.flag)) {
+            const bossAlive = this.enemies.some(e => e.type === 'EyeOfSauron');
+            if (!bossAlive) this._levelComplete();
+        }
 
         // --- Fall off world ---
-        if (p.y < -300) this._gameOver();
+        if (p.y < -300) this.playerDie();
 
         // --- Camera ---
         this._updateCamera();
@@ -344,6 +455,7 @@ class Game {
                 p.y          = pl.y + pl.height;
                 p.vy         = 0;
                 p.isGrounded = true;
+                p.activePlatform = pl;
             } else {
                 // Rising — hit ceiling
                 p.y  = pl.y - p.height;
@@ -366,7 +478,18 @@ class Game {
     // -----------------------------------------------------------------------
     _render() {
         const ctx = this.ctx;
-        ctx.clearRect(0, 0, this.VIEWPORT_W, this.VIEWPORT_H);
+        const W   = this.VIEWPORT_W;
+        const H   = this.VIEWPORT_H;
+        ctx.clearRect(0, 0, W, H);
+
+        ctx.save();
+        // Screen shake implementation
+        if (this.shakeDuration && this.shakeDuration > 0) {
+            const dx = (Math.random() - 0.5) * this.shakeIntensity;
+            const dy = (Math.random() - 0.5) * this.shakeIntensity;
+            ctx.translate(dx, dy);
+            this.shakeDuration--;
+        }
 
         this._drawBackground();
 
@@ -376,6 +499,46 @@ class Game {
         this.enemies.forEach(e    => e.draw(ctx, this.cameraX));
         this.projectiles.forEach(p => p.draw(ctx, this.cameraX));
         if (this.player)           this.player.draw(ctx, this.cameraX);
+
+        // Draw screams
+        if (this.screams) {
+            this.screams.forEach(s => {
+                ctx.save();
+                const sx = s.x - this.cameraX;
+                const sy = H - s.y;
+                ctx.strokeStyle = `rgba(160, 32, 240, ${1 - (s.r / s.maxR)})`;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(sx, sy, s.r, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            });
+        }
+
+        // Draw burning patches
+        if (this.burningPatches) {
+            this.burningPatches.forEach(patch => {
+                const sx = Math.round(patch.x - this.cameraX);
+                const sy = Math.round(H - patch.y - patch.height);
+                ctx.save();
+                // Draw flickering flame pixels
+                ctx.fillStyle = `rgba(255, ${60 + Math.floor(Math.random() * 120)}, 0, 0.85)`;
+                for (let px = 0; px < patch.width; px += 8) {
+                    const h = 5 + Math.random() * 12;
+                    ctx.fillRect(sx + px, sy + patch.height - h, 6, h);
+                }
+                ctx.restore();
+            });
+        }
+
+        ctx.restore(); // Restore screen shake state
+
+        // Draw white screen flash
+        if (this.flashOpacity && this.flashOpacity > 0) {
+            ctx.fillStyle = `rgba(255, 255, 255, ${this.flashOpacity})`;
+            ctx.fillRect(0, 0, W, H);
+            this.flashOpacity -= 0.015;
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -523,48 +686,297 @@ class Game {
             }
 
             case 'mordor': {
+                const camFar = this.cameraX * 0.1;
+                const camMid = this.cameraX * 0.35;
+                const camNear = this.cameraX * 0.70;
+                
+                // 1. SKY GRADIENT (Horizontal transition from deep ash-purple to blood-red as camera advances)
+                const redFactor = Math.min(1.0, this.cameraX / 4000);
+                let r1 = Math.round(12 + redFactor * 28);
+                let g1 = Math.round(3 - redFactor * 2);
+                let b1 = Math.round(14 - redFactor * 10);
+                let r2 = Math.round(45 + redFactor * 135);
+                let g2 = Math.round(5 + redFactor * 3);
+                let b2 = Math.round(5 + redFactor * 3);
+                
+                // Final Cinematic: check if boss is collapsing and transition sky to gold/blue
+                const boss = this.enemies.find(e => e.type === 'EyeOfSauron');
+                let collapseProgress = 0;
+                if (boss && boss.state === 'death') {
+                    collapseProgress = (240 - boss.deathTimer) / 240;
+                    r1 = Math.round(r1 * (1 - collapseProgress) + collapseProgress * 135);
+                    g1 = Math.round(g1 * (1 - collapseProgress) + collapseProgress * 206);
+                    b1 = Math.round(b1 * (1 - collapseProgress) + collapseProgress * 250);
+                    r2 = Math.round(r2 * (1 - collapseProgress) + collapseProgress * 255);
+                    g2 = Math.round(g2 * (1 - collapseProgress) + collapseProgress * 223);
+                    b2 = Math.round(b2 * (1 - collapseProgress) + collapseProgress * 0);
+                }
+                
                 const sky = ctx.createLinearGradient(0, 0, 0, H);
-                sky.addColorStop(0,   '#0C0000');
-                sky.addColorStop(0.6, '#1E0300');
-                sky.addColorStop(1,   '#3A0800');
+                sky.addColorStop(0, `rgb(${r1},${g1},${b1})`);
+                sky.addColorStop(1, `rgb(${r2},${g2},${b2})`);
                 ctx.fillStyle = sky;
                 ctx.fillRect(0, 0, W, H);
 
-                // Ash clouds
-                ctx.fillStyle = 'rgba(30,10,10,0.7)';
-                for (let i = -1; i < 6; i++) {
-                    const cx = (i * 200 - camP2 % 200);
-                    const cy = 20 + (i * 37) % 60 + Math.sin(t / 1200 + i) * 10;
+                // 2. LIGHTNING STORM EFFECT
+                if (!this.lightningTimer) this.lightningTimer = 100;
+                if (this.lightningActive === undefined) this.lightningActive = false;
+                
+                this.lightningTimer--;
+                if (this.lightningTimer <= 0) {
+                    this.lightningActive = Math.random() < 0.35;
+                    this.lightningTimer = 80 + Math.random() * 150; // trigger check every 1.5-3 seconds
+                }
+                
+                if (this.lightningActive && Math.floor(t / 70) % 2 === 0) {
+                    // Flash the background
+                    ctx.fillStyle = `rgba(255, 200, 200, ${0.15 + Math.random() * 0.2})`;
+                    ctx.fillRect(0, 0, W, H);
+                    
+                    // Draw a lightning bolt
+                    ctx.save();
+                    ctx.strokeStyle = 'rgba(255, 235, 235, 0.85)';
+                    ctx.lineWidth = 2.5;
+                    ctx.shadowColor = '#FF3A00';
+                    ctx.shadowBlur = 12;
                     ctx.beginPath();
-                    ctx.ellipse(cx, cy, 80, 28, 0, 0, Math.PI * 2);
-                    ctx.fill();
+                    let lx = 150 + (t % 500);
+                    let ly = 0;
+                    ctx.moveTo(lx, ly);
+                    for (let step = 0; step < 7; step++) {
+                        lx += -25 + Math.random() * 50;
+                        ly += 30 + Math.random() * 20;
+                        ctx.lineTo(lx, ly);
+                    }
+                    ctx.stroke();
+                    ctx.restore();
+                } else if (this.lightningActive && this.lightningTimer < 60) {
+                    // Turn off active flash state after a short burst
+                    this.lightningActive = false;
                 }
 
-                // Barad-dûr tower silhouette (far background)
-                ctx.fillStyle = '#080000';
-                const towerX = W * 0.55 - camP2 % 20;
-                ctx.fillRect(towerX - 18, 0, 36, H - 40);
-                // Tower battlements
-                for (let i = 0; i < 4; i++)
-                    ctx.fillRect(towerX - 18 + i * 10, 0, 7, 20);
-
-                // Lava glow (bottom)
-                const lavaA = 0.35 + Math.sin(t / 600) * 0.12;
-                const lavaGrd = ctx.createLinearGradient(0, H - 100, 0, H);
-                lavaGrd.addColorStop(0, 'transparent');
-                lavaGrd.addColorStop(1, `rgba(220,40,0,${lavaA})`);
-                ctx.fillStyle = lavaGrd;
-                ctx.fillRect(0, H - 100, W, 100);
-
-                // Eye of Sauron glow on horizon (atmospheric)
-                const eyeA = 0.15 + Math.sin(t / 500) * 0.08;
-                ctx.fillStyle   = `rgba(255,60,0,${eyeA})`;
-                ctx.shadowColor = '#FF3A00';
-                ctx.shadowBlur  = 30;
+                // 3. FAR LAYER: ERUPTING MOUNT DOOM (left/middle background)
+                ctx.save();
+                const mDoomX = 1100 - camFar;
+                // Draw Mountain silhouette
+                ctx.fillStyle = '#080203';
                 ctx.beginPath();
-                ctx.ellipse(towerX, 12, 20, 14, 0, 0, Math.PI * 2);
+                ctx.moveTo(mDoomX - 220, H);
+                ctx.lineTo(mDoomX - 60, H - 170); // Crater rim left
+                ctx.lineTo(mDoomX + 60, H - 170); // Crater rim right
+                ctx.lineTo(mDoomX + 220, H);
+                ctx.fill();
+                
+                // Glowing crater lava
+                ctx.fillStyle = '#FF3C00';
+                ctx.shadowColor = '#FF3C00';
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.ellipse(mDoomX, H - 170, 60, 6, 0, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.shadowBlur = 0;
+                
+                // Lava flows running down mountain
+                ctx.strokeStyle = '#FF4500';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(mDoomX - 25, H - 170);
+                ctx.quadraticCurveTo(mDoomX - 45, H - 100, mDoomX - 80, H);
+                ctx.moveTo(mDoomX + 15, H - 170);
+                ctx.quadraticCurveTo(mDoomX + 35, H - 110, mDoomX + 55, H);
+                ctx.stroke();
+                
+                // Erupting smoke billows
+                ctx.fillStyle = 'rgba(38, 18, 18, 0.72)';
+                for (let i = 0; i < 4; i++) {
+                    const sx = mDoomX + Math.sin(t / 600 + i) * 12;
+                    const sy = H - 180 - (i * 24) - ((t / 70) % 20);
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, 18 + i * 6, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Lava sparks flying up
+                ctx.fillStyle = 'rgba(255, 90, 0, 0.9)';
+                for (let i = 0; i < 12; i++) {
+                    const spX = mDoomX + Math.sin(i * 97 + t * 0.006) * (20 + (i * 5) % 35);
+                    const spY = H - 180 - ((t * 0.07 + i * 40) % 100);
+                    ctx.fillRect(spX, spY, 2.5, 2.5);
+                }
+                ctx.restore();
+
+                // 4. MIDDLE LAYER: BARAD-DUR (Centered when cameraX reaches 4000)
+                // At cameraX = 4000, camMid = 1400. To center it on screen (X=400), tower position = 1800.
+                const towerX = 1800 - camMid;
+                const towerOffset = collapseProgress * 350;
+                
+                ctx.save();
+                ctx.fillStyle = '#060307';
+                // Tower Base
+                ctx.fillRect(towerX - 55, H - 350 + towerOffset, 110, 350);
+                // Tower Side spikes
+                ctx.beginPath();
+                ctx.moveTo(towerX - 90, H + towerOffset);
+                ctx.lineTo(towerX - 55, H - 230 + towerOffset);
+                ctx.lineTo(towerX - 55, H + towerOffset);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(towerX + 90, H + towerOffset);
+                ctx.lineTo(towerX + 55, H - 230 + towerOffset);
+                ctx.lineTo(towerX + 55, H + towerOffset);
+                ctx.fill();
+                // Mid tower block
+                ctx.fillRect(towerX - 40, H - 410 + towerOffset, 80, 60);
+                // Crown horns / battlements
+                ctx.beginPath();
+                ctx.moveTo(towerX - 40, H - 410 + towerOffset);
+                ctx.lineTo(towerX - 50, H - 460 + towerOffset); // Left fork
+                ctx.lineTo(towerX - 20, H - 410 + towerOffset);
+                ctx.lineTo(towerX + 20, H - 410 + towerOffset);
+                ctx.lineTo(towerX + 50, H - 460 + towerOffset); // Right fork
+                ctx.lineTo(towerX + 40, H - 410 + towerOffset);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Falling stone crumbles during collapse
+                if (collapseProgress > 0 && boss && boss.deathTimer > 0) {
+                    ctx.fillStyle = '#060307';
+                    for (let sIdx = 0; sIdx < 12; sIdx++) {
+                        const blockX = towerX + Math.sin(sIdx * 113 + t * 0.04) * 60;
+                        const blockY = H - 350 + (collapseProgress * 500 + sIdx * 25) % 350;
+                        ctx.fillRect(blockX - 4, blockY - 4, 8 + sIdx % 4, 8 + sIdx % 4);
+                    }
+                }
+
+                // 5. THE EYE OF SAURON & SEARCHLIGHT (At top of Barad-dûr)
+                const eyeX = towerX;
+                const eyeY = H - 425 + towerOffset;
+                const eyePulse = Math.sin(t / 220) * 3.5;
+                
+                // Skip drawing eye/searchlight if fully collapsed or exploding
+                if (collapseProgress < 0.9) {
+                    if (collapseProgress > 0) {
+                        // Exploding eye expanding circles
+                        ctx.fillStyle = `rgba(255, ${150 + Math.floor(Math.random()*105)}, 200, ${1 - collapseProgress})`;
+                        ctx.beginPath();
+                        ctx.arc(eyeX, eyeY, 15 + collapseProgress * 180, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else {
+                        // Orange-red pupil glow
+                        const eyeGrd = ctx.createRadialGradient(eyeX, eyeY, 1.5, eyeX, eyeY, 18 + eyePulse);
+                        eyeGrd.addColorStop(0, 'rgba(255, 120, 0, 1.0)');
+                        eyeGrd.addColorStop(0.4, 'rgba(230, 30, 0, 0.7)');
+                        eyeGrd.addColorStop(1, 'rgba(255, 0, 0, 0)');
+                        ctx.fillStyle = eyeGrd;
+                        ctx.beginPath();
+                        ctx.arc(eyeX, eyeY, 22 + eyePulse, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        // Slit black center
+                        ctx.fillStyle = '#100000';
+                        ctx.beginPath();
+                        ctx.ellipse(eyeX, eyeY, 2.2, 8, 0, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // Sweeping Searchlight (only sweep if not dead/collapsing)
+                        ctx.save();
+                        // Angled downwards, sweeping left-right
+                        const sweepAngle = Math.sin(t / 1400) * 0.32 + 0.35;
+                        ctx.translate(eyeX, eyeY);
+                        ctx.rotate(sweepAngle);
+                        
+                        const beamGrd = ctx.createLinearGradient(0, 0, 0, 550);
+                        beamGrd.addColorStop(0, 'rgba(255, 60, 0, 0.40)');
+                        beamGrd.addColorStop(0.5, 'rgba(255, 30, 0, 0.12)');
+                        beamGrd.addColorStop(1, 'rgba(255, 0, 0, 0)');
+                        ctx.fillStyle = beamGrd;
+                        ctx.beginPath();
+                        ctx.moveTo(-4, 0);
+                        ctx.lineTo(-65, 550);
+                        ctx.lineTo(65, 550);
+                        ctx.lineTo(4, 0);
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.restore();
+                    }
+                }
+                ctx.restore();
+
+                // 6. MIDGROUND NOISE: Nazgûl flyer silhouettes
+                ctx.fillStyle = '#030105';
+                for (let n = 0; n < 2; n++) {
+                    const speed = 1.6 + n * 0.6;
+                    const nx = ((t * 0.04 * speed + n * 1400) % (4800 * 0.35)) - camMid;
+                    if (nx >= -60 && nx <= W + 60) {
+                        const ny = 70 + n * 50 + Math.sin(t / 320 + n) * 10;
+                        const flap = Math.sin(t / 130 + n) * 6;
+                        ctx.beginPath();
+                        ctx.moveTo(nx, ny);
+                        ctx.lineTo(nx - 16, ny - 5 + flap);
+                        ctx.lineTo(nx - 6, ny + 1);
+                        ctx.lineTo(nx, ny + 4);
+                        ctx.lineTo(nx + 6, ny + 1);
+                        ctx.lineTo(nx + 16, ny - 5 + flap);
+                        ctx.lineTo(nx, ny);
+                        ctx.fill();
+                    }
+                }
+
+                // 7. NEAR LAYER: Background rock silhouettes & chains (cameraX * 0.70)
+                ctx.fillStyle = '#050206';
+                for (let k = 0; k < 12; k++) {
+                    const kx = k * 450 - camNear;
+                    if (kx >= -120 && kx <= W + 120) {
+                        ctx.beginPath();
+                        ctx.moveTo(kx - 90, H);
+                        ctx.lineTo(kx, H - 65);
+                        ctx.lineTo(kx + 90, H);
+                        ctx.fill();
+                    }
+                }
+                
+                // Hanging background chains
+                ctx.strokeStyle = '#120E16';
+                ctx.lineWidth = 4;
+                for (let c = 0; c < 6; c++) {
+                    const cx = c * 850 - camNear;
+                    if (cx >= -220 && cx <= W + 220) {
+                        ctx.beginPath();
+                        ctx.moveTo(cx, 0);
+                        ctx.quadraticCurveTo(cx + 120, H * 0.40, cx + 240, 0);
+                        ctx.stroke();
+                    }
+                }
+
+                // 8. DYNAMIC PARTICLES: Drifting Ash & Fire Embers
+                ctx.fillStyle = 'rgba(255, 75, 0, 0.7)';
+                for (let i = 0; i < 35; i++) {
+                    const px = ((i * 137 - t * 0.045) % W + W) % W;
+                    const py = ((i * 61 + t * 0.055) % H);
+                    const size = 1.5 + (i % 3);
+                    ctx.save();
+                    if (i % 3 === 0) {
+                        ctx.shadowColor = '#FF3C00';
+                        ctx.shadowBlur = 4;
+                    }
+                    ctx.fillRect(px, py, size, size);
+                    ctx.restore();
+                }
+
+                // 9. LAVA HEAT RADIAL GLOW (Atmospheric light at the bottom)
+                const heatA = 0.25 + Math.sin(t / 450) * 0.06;
+                const heatGrd = ctx.createLinearGradient(0, H - 90, 0, H);
+                heatGrd.addColorStop(0, 'transparent');
+                heatGrd.addColorStop(1, `rgba(255, 35, 0, ${heatA})`);
+                ctx.fillStyle = heatGrd;
+                ctx.fillRect(0, H - 90, W, 90);
+
+                // 10. SCREEN RED TINT (Gets deeper hellish red as the player approaches Barad-dûr)
+                const tintOpacity = Math.min(0.40, (this.cameraX / 4000) * 0.40);
+                if (tintOpacity > 0.01) {
+                    ctx.fillStyle = `rgba(210, 0, 0, ${tintOpacity})`;
+                    ctx.fillRect(0, 0, W, H);
+                }
                 break;
             }
         }
@@ -578,12 +990,59 @@ class Game {
         const coins = document.getElementById('hud-coins');
         const gems  = document.getElementById('hud-gems');
         const level = document.getElementById('hud-level');
+        const lives = document.getElementById('hud-lives');
 
         if (this.player && fill)
             fill.style.width = `${(this.player.health / this.player.maxHealth) * 100}%`;
         if (coins) coins.textContent = this.coins;
         if (gems)  gems.textContent  = this.hasArkenstone ? '💎' : '-';
         if (level) level.textContent = this.currentLevel;
+        if (lives) lives.textContent = '❤️'.repeat(this.lives) || '💀';
+    }
+
+    playerDie() {
+        this.lives--;
+        if (window.audioManager) window.audioManager.playHit();
+        
+        if (this.lives > 0) {
+            this.respawnPlayer();
+        } else {
+            this._gameOver();
+        }
+        this._updateHUD();
+    }
+
+    respawnPlayer() {
+        const p = this.player;
+        p.health = p.maxHealth;
+        p.state = 'idle';
+        p.vx = 0;
+        p.vy = 0;
+        p.invincibleTimer = 120; // 2 seconds of invincibility
+        p.isInvisible = false;   // disable invisibility on respawn
+        
+        // Move back horizontally (one step back)
+        let targetX = Math.max(120, p.x - 200);
+        
+        // Find the closest platform that is near the targetX
+        let bestPlatform = this.platforms[0];
+        let minDist = Infinity;
+        
+        this.platforms.forEach(pl => {
+            if (pl.type === 'broken-bridge') return; // Skip unsafe broken bridges
+            const dist = Math.abs(pl.x + pl.width / 2 - targetX);
+            if (dist < minDist) {
+                minDist = dist;
+                bestPlatform = pl;
+            }
+        });
+        
+        // Place player safely on top of this platform
+        p.x = bestPlatform.x + bestPlatform.width / 2 - p.width / 2;
+        p.y = bestPlatform.y + bestPlatform.height + 5;
+        p.isGrounded = true;
+        
+        this._updateHUD();
     }
 
     // -----------------------------------------------------------------------
@@ -592,7 +1051,9 @@ class Game {
     _gameOver() {
         this.stop();
         const score   = this.coins * 10;
-        const hiScore = Math.max(score, parseInt(localStorage.getItem('lotr_hiScore') || '0'));
+        let savedHi = parseInt(localStorage.getItem('lotr_hiScore') || '0');
+        if (isNaN(savedHi)) savedHi = 0;
+        const hiScore = Math.max(score, savedHi);
         localStorage.setItem('lotr_hiScore', hiScore);
 
         const el = document.getElementById('summary-coins');
@@ -614,7 +1075,13 @@ class Game {
 
         // Unlock next level
         if (LEVELS_CONFIG[nextLevel]) {
-            const unlocked = JSON.parse(localStorage.getItem('lotr_unlocked') || '[1]');
+            let unlocked = [4];
+            try {
+                const stored = localStorage.getItem('lotr_unlocked');
+                if (stored) unlocked = JSON.parse(stored);
+            } catch (e) {
+                console.error("Failed to parse unlocked levels:", e);
+            }
             if (!unlocked.includes(nextLevel)) {
                 unlocked.push(nextLevel);
                 localStorage.setItem('lotr_unlocked', JSON.stringify(unlocked));
