@@ -65,35 +65,35 @@ Planning phase (10 points)
 
 [x] ⭐ Write README.md and start AI_DIARY.md
 
-[ ] ⭐ Deploy to GitHub Pages
+[x] ⭐ Deploy to GitHub Pages
 
 Movement/Interaction phase (35 points)
 [x] 🥇 Get one entity moving on screen (keyboard or mouse)
 
 [x] 🏆 Mandatory Commit: "feat: player movement"
 
-[ ] ⭐ Add a second entity (enemy, obstacle, collectible...)
+[x] ⭐ Add a second entity (enemy, obstacle, collectible...)
 
-[ ] 🥇 Implement collision or interaction logic
+[x] 🥇 Implement collision or interaction logic
 
-[ ] 🏆 Mandatory Commit: "feat: collission implemented" (collission or interaction)
+[x] 🏆 Mandatory Commit: "feat: collission implemented" (collission or interaction)
 
-[ ] ⭐ Add a score or a lose condition
+[x] ⭐ Add a score or a lose condition
 
-[ ] 🏆 Mandatory Commit: "feat: add score/lose"
+[x] 🏆 Mandatory Commit: "feat: add score/lose"
 
-[ ] ⭐ Add start screen and game over screen
+[x] ⭐ Add start screen and game over screen
 
-[ ] 🏆 Mandatory Commit: "feat: start & game over screen"
+[x] 🏆 Mandatory Commit: "feat: start & game over screen"
 
-[ ] 🥇 Game must be restartable without refreshing the page
+[x] 🥇 Game must be restartable without refreshing the page
 
-[ ] 🏆 Mandatory Commit: "feat: game restart"
+[x] 🏆 Mandatory Commit: "feat: game restart"
 
 Persistence phase (6 points)
-[ ] ⭐ Save and display a high score using localStorage
+[x] ⭐ Save and display a high score using localStorage
 
-[ ] 🏆 Mandatory Commit: "feat: high score"
+[x] 🏆 Mandatory Commit: "feat: high score"
 
 Documentation (49 points)
 [x] 💎 README: write the game description and list of entities, paste the drawing you made in excalidraw
@@ -108,7 +108,7 @@ Documentation (49 points)
 
 [x] 💎 README: write the known bugs / what you'd fix next section
 
-[ ] 💎 AI_DIARY.md has at least 5 entries
+[x] 💎 AI_DIARY.md has at least 5 entries
 
 Deliverables
 GitHub repo URL (public)
