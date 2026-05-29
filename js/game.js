@@ -34,7 +34,7 @@ class Game {
         this.keys = {};
 
         // Persistent state
-        this.currentLevel   = 4;
+        this.currentLevel   = 1;
         this.coins          = 0;
         this.hasArkenstone  = false;
         this.selectedChar   = 'Hobbit';
@@ -1075,7 +1075,7 @@ class Game {
 
         // Unlock next level
         if (LEVELS_CONFIG[nextLevel]) {
-            let unlocked = [4];
+            let unlocked = [1];
             try {
                 const stored = localStorage.getItem('lotr_unlocked');
                 if (stored) unlocked = JSON.parse(stored);

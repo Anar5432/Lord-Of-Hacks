@@ -34,11 +34,9 @@ class Entity {
 // --------------------------------------------------------------------------
 class Player extends Entity {
     constructor(x, y, charType) {
-        const dims = { Hobbit: [24, 36], Ranger: [28, 44], Wizard: [30, 48] };
-        const [w, h] = dims[charType] || dims.Hobbit;
-        super(x, y, w, h);
+        super(x, y, 24, 36);
 
-        this.charType        = charType;
+        this.charType        = 'Hobbit';
         this.vx              = 0;
         this.vy              = 0;
         this.isGrounded      = false;
@@ -60,22 +58,10 @@ class Player extends Entity {
     }
 
     setupStats() {
-        switch (this.charType) {
-            case 'Wizard':
-                this.maxHealth     = 100;
-                this.damage        = 30;
-                this.shootCooldown = 400;
-                break;
-            case 'Ranger':
-                this.maxHealth     = 70;
-                this.damage        = 15;
-                this.shootCooldown = 600;
-                break;
-            default: // Hobbit — design spec: 3-4 hits, slow fire rate
-                this.maxHealth     = 40;
-                this.damage        = 10;
-                this.shootCooldown = 1200; // 1 attack per 1.2 seconds
-        }
+        // Hobbit stats — design spec: 3-4 hits, slow fire rate
+        this.maxHealth     = 40;
+        this.damage        = 10;
+        this.shootCooldown = 1200; // 1 attack per 1.2 seconds
         this.health = this.maxHealth;
     }
 
@@ -139,8 +125,7 @@ class Player extends Entity {
     draw(ctx, cameraX) {
         // Blink during invincibility frames
         if (this.invincibleTimer > 0 && Math.floor(this.invincibleTimer / 5) % 2 === 0) return;
-        if (this.charType === 'Hobbit') this._drawHobbit(ctx, cameraX);
-        // Ranger and Wizard to be added later
+        this._drawHobbit(ctx, cameraX);
     }
 
     // -------------------------------------------------------------------------

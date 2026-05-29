@@ -34,6 +34,14 @@ This log documents the AI-assisted development workflow for the Vanilla JS Video
 
 **Why this is better:** Canvas allows drawing the Hobbit with curly hair, a green cloak, sword slash arcs, and glowing effects — matching the Frodo-style design sheet. CSS divs cannot achieve this level of visual fidelity.
 
+### 2026-05-26 — Scoped game to a single highly-polished level (Mordor) and hero (Hobbit)
+
+**Context:** The initial plan proposed a 4-level journey with 3 distinct character classes (Hobbit, Ranger, Wizard). However, implementing the full set of animations, distinct attack types (magic, archery, melee), and assets for all characters and levels would dilute the quality and visual polish of the game given the generative AI sprite limits and complexity.
+
+**Decision:** Scoped the project to focus entirely on **Level 1: Mordor Wasteland** and the **Hobbit** hero. This allowed us to channel AI assets and rendering pipelines into creating a stunning boss encounter (Eye of Sauron) with meteor rains, laser beams, flying Nazgûl dive-attacks, custom retro synthesized audio effects, screen shakes, and custom transparent pixel-art platform tiling.
+
+**Impact:** The result is a highly polished, premium, and fully completed 2D side-scrolling level with rich aesthetics and zero placeholder graphics, rather than a wide but sparse MVP.
+
 ---
 
 ## AI Failure Log
@@ -74,6 +82,27 @@ This log documents the AI-assisted development workflow for the Vanilla JS Video
 **What was wrong:** Playing sound every frame created a high-frequency buzz/noise because too many sounds played simultaneously.
 **How I fixed it:** Added a step timer (`stepTimer = 22` frames) to throttle footsteps to play only every ~360ms while running.
 **Time lost:** ~8 minutes
+
+### Entry 6: 2026-05-26 - Platforms were too high to navigate during Boss Stuns
+**What I asked the AI:** Create a challenging, vertical platform layout for the Mordor level.
+**What it gave me:** Platforms positioned at heights `y = 140` to `y = 270` (vertical jump differences of up to 140 pixels).
+**What was wrong:** The Hobbit's maximum jump height is 134 pixels, making a 140px jump physically impossible. Additionally, the Boss's shockwave inflicts a "Fear" effect that reduces jump height to 62 pixels, making even 80px jumps impossible during battle.
+**How I fixed it:** Rebalanced the platform heights, capping the vertical gaps between adjacent platforms to under 40 pixels. This ensured all jumps are easily cleared under all states while maintaining vertical multi-tier options.
+**Time lost:** ~15 minutes
+
+### Entry 7: 2026-05-26 - Programmatic canvas rectangles looked generic and blocky
+**What I asked the AI:** Draw detailed pixel art platforms programmatically.
+**What it gave me:** Basic canvas `fillRect` and lines to draw planks and stone layers.
+**What was wrong:** The resulting drawing was too flat, looking like basic solid grey and brown rectangles instead of hand-crafted pixel art.
+**How I fixed it:** Created a Python generator using Pillow to build 64x24 stone and 80x28 wood PNG sprites using the exact pixel colors and highlights. Converted them to Base64 transparent images and implemented horizontal 3-slice tiling in `Platform.draw()` with layered, craggy rock island bottoms.
+**Time lost:** ~20 minutes
+
+### Entry 8: 2026-05-26 - Image-to-Text limitations caused generic blocky character sprites
+**What I asked the AI:** Recreate the Hobbit character matching the color design and details of the provided reference image.
+**What it gave me:** A very simple, generic character consisting of a square and a rectangle moving on the screen.
+**What was wrong:** The AI struggled with an image-to-text translation bottleneck: it could not extract fine-grained, exact pixel coordinates and color codes from the visual image description to draw it programmatically. Prompting with more details only yielded slightly better but still unrecognizable blocks.
+**How I fixed it:** Used Grok to analyze the reference image and programmatically map out the exact pixel coordinates and RGB colors (pixel blueprint). Provided this coordinate map to the coding AI to draw the character frame-by-frame. This technique was repeated for enemies and other assets, avoiding the need to purchase online assets (though my teammate used a pre-made asset for the main character).
+**Time lost:** ~150 minutes (but this method saved many more hours in asset creation)
 
 ## The images we got:
 ![alt text](design2.jpeg)

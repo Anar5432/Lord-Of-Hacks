@@ -5,7 +5,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Instantiate game instance
     const game = new Game();
-    game.currentLevel = 4; // Force Level 4 directly
+    game.currentLevel = 1; // Force Level 1 directly
     window.audioManager = new AudioManager();
     
     const initAudio = () => {
@@ -218,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateLevelSelectorUI() {
-        let unlockedLevels = [4];
+        let unlockedLevels = [1];
         try {
             const stored = localStorage.getItem('lotr_unlocked');
             if (stored) unlockedLevels = JSON.parse(stored);

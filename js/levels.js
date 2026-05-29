@@ -3,7 +3,7 @@
 // ==========================================================================
 
 const LEVELS_CONFIG = {
-    4: {
+    1: {
         name: "Mordor Wasteland",
         theme: "mordor",
         width: 4800, // Very long horizontal composition
