@@ -87,8 +87,11 @@ LordOfHacks/
 ---
 
 ## 🐛 Known Bugs & Future Fixes
-*   *None currently: Initial planning and design phase.*
-*   **Planned Fixes / Improvements**:
+*   **Resolved**:
+    1.  Fixed potential crash on player death during canvas context balance loops.
+    2.  Prevented infinite death loops by excluding broken bridges from respawn platform targets.
+    3.  Balanced platform vertical heights to ensure all jumps are easy and comfortable under stuns/fear states (jump gap < 40px).
+    4.  Overhauled procedural block rendering with high-fidelity, custom image-based 3-slice tiling matching original pixel coordinates.
+*   **Planned Improvements**:
     1.  Add support for mobile touch controls.
-    2.  Implement audio effects and retro background tracks.
-    3.  Improve physics friction calculations for smooth stopping momentum.
+    2.  Improve physics friction calculations for smooth stopping momentum.
