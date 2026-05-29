@@ -3,23 +3,135 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lord of the Hacks - 2D Retro Platformer</title>
-    <!-- Modern Retro Typography -->
+    <meta name="description" content="Lord of the Hacks – A pixel adventure through Middle-earth. Jump, hack, and survive!">
+    <title>Lord of the Hacks – A Pixel Adventure</title>
+    <!-- Pixel + Clean Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=1.0.2">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=3.0.0">
 </head>
 <body>
     <div id="app-container">
-        <!-- Start Screen -->
+
+        <!-- ══════════════════════════════════════
+             START SCREEN
+             ══════════════════════════════════════ -->
         <div id="start-screen" class="overlay-screen active">
-            <h1 class="game-title">LORD OF THE HACKS</h1>
-            <p class="game-subtitle">A Middle-earth 2D Platformer Adventure</p>
-            
-            <!-- Character Selection / Shop -->
-            <div class="character-select-container">
-                <h3>Select Your Hero</h3>
+
+            <!-- Cinematic Background -->
+            <div class="start-bg"></div>
+
+            <!-- Ember Particle Canvas -->
+            <canvas id="ember-canvas"></canvas>
+
+            <!-- Vignette overlay -->
+            <div class="start-vignette"></div>
+
+            <!-- Pixel scanline overlay -->
+            <div class="scanlines"></div>
+
+            <!-- ── MAIN CONTENT ── -->
+            <div class="start-content">
+
+                <!-- LEFT: Title + Hero card + CTA -->
+                <div class="start-left">
+
+                    <!-- Pixel badge -->
+                    <div class="pixel-badge">
+                        <span class="badge-dot"></span>
+                        PIXEL ADVENTURE
+                    </div>
+
+                    <!-- Game Title -->
+                    <h1 class="game-title">
+                        <span class="title-shadow-wrap">
+                            <span class="title-top">LORD OF</span>
+                            <span class="title-bot">THE HACKS</span>
+                        </span>
+                    </h1>
+
+                    <!-- Pixel divider -->
+                    <div class="pixel-divider">
+                        <span class="pdiv-block"></span>
+                        <span class="pdiv-block active"></span>
+                        <span class="pdiv-block active"></span>
+                        <span class="pdiv-block active"></span>
+                        <span class="pdiv-block active"></span>
+                        <span class="pdiv-block active"></span>
+                        <span class="pdiv-block active"></span>
+                        <span class="pdiv-block active"></span>
+                        <span class="pdiv-block"></span>
+                    </div>
+
+                    <!-- Tagline -->
+                    <p class="game-tagline">Jump. Fight. Survive.<br>Save Middle-earth, one hack at a time.</p>
+
+                    <!-- Hero info card -->
+                    <div class="hero-card">
+                        <div class="hero-card-label">YOUR HERO</div>
+                        <div class="hero-card-inner">
+                            <div class="hero-avatar">
+                                <img src="hobbit_pixel.png" alt="Hobbit" class="hero-pixel-img" />
+                                <div class="hero-avatar-glow"></div>
+                            </div>
+                            <div class="hero-card-info">
+                                <div class="hero-card-name">FRODO</div>
+                                <div class="hero-card-class">The Hobbit</div>
+                                <div class="hero-mini-stats">
+                                    <div class="mini-stat">
+                                        <span class="mini-icon">🗡</span>
+                                        <span>ATK</span>
+                                        <div class="mini-bar"><div class="mini-fill" style="width:45%"></div></div>
+                                    </div>
+                                    <div class="mini-stat">
+                                        <span class="mini-icon">💨</span>
+                                        <span>SPD</span>
+                                        <div class="mini-bar"><div class="mini-fill speed" style="width:72%"></div></div>
+                                    </div>
+                                    <div class="mini-stat">
+                                        <span class="mini-icon">🫀</span>
+                                        <span>HP</span>
+                                        <div class="mini-bar"><div class="mini-fill hp" style="width:55%"></div></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CTA Button -->
+                    <button id="start-button" class="btn-start">
+                        <span class="btn-start-inner">
+                            ▶&nbsp; START ADVENTURE
+                        </span>
+                    </button>
+
+                    <!-- Keyboard hint -->
+                    <p class="start-hint">Press <kbd>ENTER</kbd> to play</p>
+                </div>
+
+                <!-- RIGHT: Large character display -->
+                <div class="start-right">
+                    <div class="char-display">
+                        <div class="char-glow-ring"></div>
+                        <img src="hobbit_pixel.png" alt="Hobbit Hero" class="char-big-img" />
+                        <!-- Floating coins -->
+                        <div class="float-coin coin-1">🪙</div>
+                        <div class="float-coin coin-2">⭐</div>
+                        <div class="float-coin coin-3">💎</div>
+                        <!-- Ground shadow -->
+                        <div class="char-shadow"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hidden elements required by game.js -->
+            <div class="level-select-container" style="display:none;">
+                <div class="level-buttons">
+                    <button class="btn level-btn active" data-level="1">1. Mordor</button>
+                </div>
+            </div>
+            <div class="character-select-container" style="display:none;">
                 <div class="character-cards">
                     <div class="char-card active" data-char="Hobbit">
                         <div class="char-sprite hobbit-sprite"></div>
@@ -30,20 +142,20 @@
                 </div>
             </div>
 
-            <!-- Level Selector (Hidden, Level 4 is the only level) -->
-            <div class="level-select-container" style="display: none;">
-                <h3>Select Journey</h3>
-                <div class="level-buttons">
-                    <button class="btn level-btn active" data-level="1">1. Mordor</button>
-                </div>
+            <!-- Pixel bottom bar -->
+            <div class="pixel-bottom-bar">
+                <span class="pbb-item">🎮 USE ARROW KEYS TO MOVE</span>
+                <span class="pbb-sep">|</span>
+                <span class="pbb-item">SPACE TO JUMP</span>
+                <span class="pbb-sep">|</span>
+                <span class="pbb-item">Z TO ATTACK</span>
             </div>
-
-            <button id="start-button" class="btn btn-primary btn-large">JOURNEY FORTH</button>
         </div>
 
-        <!-- Gameplay HUD & Canvas Viewport -->
+        <!-- ══════════════════════════════════════
+             GAMEPLAY HUD & CANVAS VIEWPORT
+             ══════════════════════════════════════ -->
         <div id="game-container" class="hidden">
-            <!-- HUD (HTML overlay, above canvas) -->
             <div id="hud">
                 <div class="hud-item health-container">
                     <span class="hud-label">HP:</span>
@@ -66,8 +178,6 @@
                     <span id="hud-lives" class="hud-value">❤️❤️❤️</span>
                 </div>
             </div>
-
-            <!-- Game Canvas (Canvas API renders all gameplay here) -->
             <canvas id="game-canvas" width="800" height="470"></canvas>
         </div>
 
@@ -83,7 +193,7 @@
             <button id="menu-button" class="btn btn-secondary">MAIN MENU</button>
         </div>
 
-        <!-- Level Complete / Victory Screen -->
+        <!-- Victory Screen -->
         <div id="victory-screen" class="overlay-screen hidden">
             <h2 class="screen-title success-text">VICTORY</h2>
             <p id="victory-message">Level completed successfully!</p>
@@ -94,7 +204,7 @@
             <button id="victory-menu-button" class="btn btn-secondary">MAIN MENU</button>
         </div>
 
-        <!-- Level Fade Transition Overlay -->
+        <!-- Fade Overlay -->
         <div id="fade-overlay"></div>
     </div>
 
@@ -104,5 +214,74 @@
     <script src="js/audio.js?v=1.0.2"></script>
     <script src="js/game.js?v=1.0.2"></script>
     <script src="js/main.js?v=1.0.2"></script>
+
+    <!-- Ember Particle System -->
+    <script>
+    (function() {
+        const canvas = document.getElementById('ember-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+
+        function resize() {
+            canvas.width  = canvas.offsetWidth  || 920;
+            canvas.height = canvas.offsetHeight || 580;
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        const EMBER_COUNT = 55;
+        const embers = [];
+
+        function rand(a, b) { return a + Math.random() * (b - a); }
+
+        class Ember {
+            constructor() { this.reset(true); }
+            reset(init) {
+                this.x      = rand(0, canvas.width);
+                this.y      = init ? rand(0, canvas.height) : canvas.height + 6;
+                this.size   = rand(1, 3);
+                this.speedY = rand(0.25, 0.9);
+                this.speedX = rand(-0.35, 0.35);
+                this.life   = 1;
+                this.decay  = rand(0.003, 0.007);
+                this.hue    = rand(18, 42);
+            }
+            update() {
+                this.y    -= this.speedY;
+                this.x    += this.speedX + Math.sin(this.y * 0.025) * 0.25;
+                this.life -= this.decay;
+                if (this.life <= 0 || this.y < -8) this.reset(false);
+            }
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life * 0.85);
+                ctx.shadowBlur  = 7;
+                ctx.shadowColor = `hsl(${this.hue},100%,60%)`;
+                ctx.fillStyle   = `hsl(${this.hue},100%,65%)`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        for (let i = 0; i < EMBER_COUNT; i++) embers.push(new Ember());
+
+        function loop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            embers.forEach(e => { e.update(); e.draw(); });
+            requestAnimationFrame(loop);
+        }
+        loop();
+
+        // ENTER key triggers start
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                const btn = document.getElementById('start-button');
+                if (btn) btn.click();
+            }
+        });
+    })();
+    </script>
 </body>
 </html>

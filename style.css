@@ -1,35 +1,532 @@
 /* ==========================================================================
-   Lord of the Hacks - CSS Game Stylesheet (Visual Overhaul Edition)
+   Lord of the Hacks - CSS Game Stylesheet
+   VERSION 3.0 â€” PIXEL ADVENTURE STYLE (Mario / Pixel Platformer Inspired)
    ========================================================================== */
 
-/* Design Tokens & Theme Variables */
+/* â”€â”€ Design Tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :root {
-    --bg-main: #06040A; /* Deep dark void */
-    --panel-bg: rgba(18, 14, 32, 0.9); /* Sleek glassmorphism */
-    --panel-border: #4A3A75;
-    
-    /* Typography Fonts */
+    --bg-main: #06040A;
+    --panel-bg: rgba(10, 6, 22, 0.85);
+    --panel-border: #3A2A60;
+
     --font-retro: 'Press Start 2P', monospace;
-    --font-sans: 'Outfit', sans-serif;
-    
-    /* Elegant High-Fantasy Color Palette */
-    --gold: #FFD700;
-    --gold-glow: rgba(255, 215, 0, 0.5);
-    --gold-dark: #B8860B;
-    
-    --green: #39FF14;
+    --font-sans:  'Outfit', sans-serif;
+
+    /* Gold / Coin palette */
+    --gold:        #FFD166;
+    --gold-bright: #FFE89C;
+    --gold-dark:   #7A4A00;
+    --gold-glow:   rgba(255, 209, 102, 0.45);
+
+    --ember:      #FF6B2B;
+    --ember-glow: rgba(255, 107, 43, 0.55);
+
+    --green:      #39FF14;
     --green-glow: rgba(57, 255, 20, 0.4);
-    
-    --red: #FF3E3E;
-    --red-glow: rgba(255, 62, 62, 0.5);
-    
-    --cyan: #00F0FF;
-    --cyan-glow: rgba(0, 240, 255, 0.5);
-    
-    --purple: #8B5CF6;
-    --text-light: #F1F5F9;
-    --text-muted: #64748B;
+
+    --red:        #FF3E3E;
+    --red-glow:   rgba(255, 62, 62, 0.5);
+
+    --cyan:       #00F0FF;
+    --cyan-glow:  rgba(0, 240, 255, 0.5);
+
+    --purple:     #8B5CF6;
+    --text-light: #F1EDD8;
+    --text-muted: #8C7A5E;
 }
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   â˜…  PIXEL / MARIO STYLE START SCREEN â€” v3.0
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+
+/* â”€â”€ Ember canvas â”€â”€ */
+#ember-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 3;
+}
+
+/* â”€â”€ Background â”€â”€ */
+.start-bg {
+    position: absolute;
+    inset: 0;
+    background: url('game_bg_epic.png') center center / cover no-repeat;
+    z-index: 0;
+    transform: scale(1.04);
+    animation: bgBreath 10s ease-in-out infinite alternate;
+    filter: brightness(0.48) saturate(1.1);
+}
+@keyframes bgBreath {
+    from { transform: scale(1.04); filter: brightness(0.48) saturate(1.1); }
+    to   { transform: scale(1.07); filter: brightness(0.54) saturate(1.2); }
+}
+
+/* â”€â”€ Vignette â”€â”€ */
+.start-vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+        ellipse 80% 75% at 40% 50%,
+        transparent 0%,
+        rgba(3, 1, 8, 0.5) 55%,
+        rgba(2, 1, 6, 0.88) 100%
+    );
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* â”€â”€ Pixel scanlines overlay for retro feel â”€â”€ */
+.scanlines {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 3px,
+        rgba(0, 0, 0, 0.07) 3px,
+        rgba(0, 0, 0, 0.07) 4px
+    );
+}
+
+/* â”€â”€ Main layout â”€â”€ */
+.start-content {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 100%;
+    padding: 28px 28px 52px 32px;
+    gap: 8px;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   LEFT COLUMN
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.start-left {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    flex: 1 1 0;
+}
+/* â”€â”€ Pixel badge â”€â”€ */
+.pixel-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--font-retro);
+    font-size: 0.45rem;
+    letter-spacing: 1.5px;
+    color: #FFD166;
+    background: rgba(255, 209, 102, 0.1);
+    border: 2px solid rgba(255, 209, 102, 0.35);
+    padding: 5px 10px;
+    margin-bottom: 14px;
+    clip-path: polygon(
+        0 4px, 4px 0, calc(100% - 4px) 0, 100% 4px,
+        100% calc(100% - 4px), calc(100% - 4px) 100%,
+        4px 100%, 0 calc(100% - 4px)
+    );
+    animation: fadeSlideIn 0.7s ease both;
+}
+.badge-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: #FFD166;
+    box-shadow: 0 0 6px rgba(255,209,102,0.8);
+    animation: dotBlink 1.2s step-end infinite;
+}
+@keyframes dotBlink {
+    0%,100% { opacity: 1; }
+    50%      { opacity: 0; }
+}
+
+/* â”€â”€ GAME TITLE â€” Press Start 2P pixel style â”€â”€ */
+.game-title {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    animation: fadeSlideIn 0.85s 0.1s ease both;
+    line-height: 1;
+}
+.title-shadow-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+.title-top {
+    font-family: var(--font-retro);
+    font-size: 1.45rem;
+    color: #F1EDD8;
+    text-shadow:
+        3px 3px 0 #5A3A00,
+        6px 6px 0 rgba(0,0,0,0.5);
+    letter-spacing: 3px;
+    line-height: 1.2;
+}
+.title-bot {
+    font-family: var(--font-retro);
+    font-size: 1.9rem;
+    color: #FFD166;
+    text-shadow:
+        3px 3px 0 #7A4A00,
+        6px 6px 0 rgba(0,0,0,0.55),
+        0 0 20px rgba(255,209,102,0.3);
+    letter-spacing: 2px;
+    line-height: 1.2;
+    animation: titleGlow 3s 1.5s ease-in-out infinite alternate;
+}
+@keyframes titleGlow {
+    from { text-shadow: 3px 3px 0 #7A4A00, 6px 6px 0 rgba(0,0,0,0.55), 0 0 16px rgba(255,209,102,0.25); }
+    to   { text-shadow: 3px 3px 0 #7A4A00, 6px 6px 0 rgba(0,0,0,0.55), 0 0 30px rgba(255,209,102,0.55); }
+}
+
+/* â”€â”€ Pixel block divider â”€â”€ */
+.pixel-divider {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 12px;
+    animation: fadeSlideIn 0.9s 0.2s ease both;
+}
+.pdiv-block {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: rgba(255,209,102,0.18);
+    border: 1px solid rgba(255,209,102,0.2);
+}
+.pdiv-block.active {
+    background: #FFD166;
+    box-shadow: 0 0 5px rgba(255,209,102,0.7);
+}
+
+/* â”€â”€ Tagline â”€â”€ */
+.game-tagline {
+    font-family: var(--font-sans);
+    font-size: 0.82rem;
+    font-weight: 400;
+    color: rgba(241, 237, 216, 0.72);
+    line-height: 1.75;
+    margin-bottom: 18px;
+    letter-spacing: 0.2px;
+    animation: fadeSlideIn 0.95s 0.25s ease both;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   HERO CARD
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.hero-card {
+    width: 100%;
+    margin-bottom: 20px;
+    animation: fadeSlideIn 1s 0.35s ease both;
+}
+.hero-card-label {
+    font-family: var(--font-retro);
+    font-size: 0.45rem;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    margin-bottom: 7px;
+}
+.hero-card-inner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(10, 6, 22, 0.75);
+    border: 2px solid rgba(255,209,102,0.2);
+    padding: 12px 14px;
+    clip-path: polygon(
+        0 6px, 6px 0, calc(100% - 6px) 0, 100% 6px,
+        100% calc(100% - 6px), calc(100% - 6px) 100%,
+        6px 100%, 0 calc(100% - 6px)
+    );
+    backdrop-filter: blur(8px);
+}
+.hero-avatar {
+    position: relative;
+    width: 72px;
+    height: 72px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,209,102,0.05);
+    border: 2px solid rgba(255,209,102,0.22);
+}
+.hero-avatar-glow {
+    position: absolute;
+    inset: -4px;
+    background: radial-gradient(circle, rgba(255,209,102,0.18) 0%, transparent 70%);
+    animation: avatarPulse 2.5s ease-in-out infinite alternate;
+    pointer-events: none;
+}
+@keyframes avatarPulse {
+    from { opacity: 0.4; }
+    to   { opacity: 1; }
+}
+.hero-pixel-img {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.8));
+    animation: heroFloat 3s ease-in-out infinite alternate;
+}
+@keyframes heroFloat {
+    from { transform: translateY(0); }
+    to   { transform: translateY(-4px); }
+}
+.hero-card-info { flex: 1; }
+.hero-card-name {
+    font-family: var(--font-retro);
+    font-size: 0.7rem;
+    color: #FFD166;
+    text-shadow: 2px 2px 0 #7A4A00;
+    letter-spacing: 2px;
+    margin-bottom: 3px;
+}
+.hero-card-class {
+    font-family: var(--font-sans);
+    font-size: 0.72rem;
+    color: rgba(241,237,216,0.5);
+    font-style: italic;
+    margin-bottom: 10px;
+}
+.hero-mini-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.mini-stat {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.mini-icon { font-size: 0.6rem; width: 14px; text-align: center; }
+.mini-stat > span:nth-child(2) {
+    font-family: var(--font-retro);
+    font-size: 0.38rem;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    width: 22px;
+}
+.mini-bar {
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    overflow: hidden;
+}
+.mini-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #C04000, #FF8040);
+    box-shadow: 0 0 4px rgba(255,100,40,0.6);
+    animation: statGrow 1s 0.6s ease both;
+}
+.mini-fill.speed {
+    background: linear-gradient(90deg, #006B40, #30FF90);
+    box-shadow: 0 0 4px rgba(30,200,100,0.6);
+}
+.mini-fill.hp {
+    background: linear-gradient(90deg, #8B0000, #FF4444);
+    box-shadow: 0 0 4px rgba(255,50,50,0.6);
+}
+@keyframes statGrow {
+    from { width: 0% !important; }
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   START BUTTON
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.btn-start {
+    position: relative;
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    margin-bottom: 12px;
+    animation: fadeSlideIn 1s 0.45s ease both;
+    outline: none;
+}
+.btn-start-inner {
+    display: block;
+    font-family: var(--font-retro);
+    font-size: 0.72rem;
+    letter-spacing: 2px;
+    color: #1A0A00;
+    background: linear-gradient(180deg, #FFE070 0%, #FFB800 50%, #D48000 100%);
+    padding: 13px 28px;
+    clip-path: polygon(
+        0 6px, 6px 0, calc(100% - 6px) 0, 100% 6px,
+        100% calc(100% - 6px), calc(100% - 6px) 100%,
+        6px 100%, 0 calc(100% - 6px)
+    );
+    box-shadow: 0 5px 0 #7A4A00, 0 6px 12px rgba(0,0,0,0.5);
+    transition: transform 0.1s, box-shadow 0.1s;
+    position: relative;
+    overflow: hidden;
+}
+.btn-start-inner::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -80%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    animation: btnShine 2.8s 1s ease-in-out infinite;
+}
+@keyframes btnShine {
+    0%   { left: -80%; }
+    45%  { left: 130%; }
+    100% { left: 130%; }
+}
+.btn-start:hover .btn-start-inner {
+    transform: translateY(-2px);
+    box-shadow: 0 7px 0 #7A4A00, 0 8px 18px rgba(0,0,0,0.5), 0 0 18px rgba(255,200,0,0.35);
+}
+.btn-start:active .btn-start-inner {
+    transform: translateY(3px);
+    box-shadow: 0 2px 0 #7A4A00;
+}
+
+/* Keyboard hint */
+.start-hint {
+    font-family: var(--font-sans);
+    font-size: 0.6rem;
+    color: rgba(241,237,216,0.3);
+    letter-spacing: 1px;
+    animation: fadeSlideIn 1s 0.6s ease both;
+}
+.start-hint kbd {
+    display: inline-block;
+    padding: 1px 5px;
+    border: 1px solid rgba(255,255,255,0.18);
+    font-size: 0.58rem;
+    color: rgba(255,255,255,0.38);
+    background: rgba(255,255,255,0.04);
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   RIGHT COLUMN
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.start-right {
+    flex: 0 0 auto;
+    width: 290px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeSlideIn 1.1s 0.15s ease both;
+}
+.char-display {
+    position: relative;
+    width: 220px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.char-glow-ring {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 180px;
+    height: 60px;
+    background: radial-gradient(ellipse, rgba(255,209,102,0.22) 0%, transparent 70%);
+    pointer-events: none;
+    animation: ringPulse 3s ease-in-out infinite alternate;
+}
+@keyframes ringPulse {
+    from { opacity: 0.5; transform: translateX(-50%) scale(0.9); }
+    to   { opacity: 1;   transform: translateX(-50%) scale(1.1); }
+}
+.char-big-img {
+    width: 200px;
+    height: 200px;
+    object-fit: contain;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    filter: drop-shadow(0 12px 20px rgba(0,0,0,0.75))
+            drop-shadow(0 0 16px rgba(255,180,60,0.2));
+    animation: charBob 3.5s ease-in-out infinite alternate;
+    position: relative;
+    z-index: 2;
+}
+@keyframes charBob {
+    from { transform: translateY(0px) scale(1); }
+    to   { transform: translateY(-14px) scale(1.02); }
+}
+.float-coin {
+    position: absolute;
+    font-size: 1.2rem;
+    animation: coinFloat ease-in-out infinite;
+    z-index: 3;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+}
+.coin-1 { top: 8%;  left: 4%;  animation-duration: 4.2s; animation-delay: 0s;   }
+.coin-2 { top: 12%; right: 7%; animation-duration: 3.6s; animation-delay: 0.8s; }
+.coin-3 { top: 28%; left: 9%;  animation-duration: 5s;   animation-delay: 1.5s; }
+@keyframes coinFloat {
+    0%   { transform: translateY(0) rotate(0deg);    opacity: 1;   }
+    50%  { transform: translateY(-18px) rotate(8deg); opacity: 0.85; }
+    100% { transform: translateY(0) rotate(0deg);    opacity: 1;   }
+}
+.char-shadow {
+    width: 110px;
+    height: 16px;
+    background: radial-gradient(ellipse, rgba(0,0,0,0.5) 0%, transparent 70%);
+    border-radius: 50%;
+    margin-top: -10px;
+    z-index: 1;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   PIXEL BOTTOM BAR
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.pixel-bottom-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 36px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    background: rgba(4, 2, 10, 0.82);
+    border-top: 2px solid rgba(255,209,102,0.15);
+}
+.pbb-item {
+    font-family: var(--font-retro);
+    font-size: 0.38rem;
+    letter-spacing: 1px;
+    color: rgba(241,237,216,0.45);
+}
+.pbb-sep {
+    color: rgba(255,209,102,0.25);
+    font-size: 0.7rem;
+}
+
+/* â”€â”€ Shared animation â”€â”€ */
+@keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
+   LEGACY / GAME SCREEN RULES (kept intact below)
+   â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•  */
+
 
 /* Base resets & box model */
 * {
@@ -55,12 +552,15 @@ body {
 /* App Wrapper */
 #app-container {
     position: relative;
-    width: 840px;
-    height: 600px;
-    background: linear-gradient(135deg, #110B29 0%, #05030D 100%);
-    border: 4px solid var(--panel-border);
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(74, 58, 117, 0.3);
-    border-radius: 12px;
+    width: 920px;
+    height: 580px;
+    background: #04020A;
+    border: 2px solid rgba(255,209,102,0.12);
+    box-shadow:
+        0 30px 80px rgba(0, 0, 0, 0.9),
+        0 0 60px rgba(255,107,43,0.08),
+        0 0 0 1px rgba(255,255,255,0.04);
+    border-radius: 10px;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -103,7 +603,13 @@ body {
     justify-content: center;
     align-items: center;
     padding: 30px;
-    transition: opacity 0.4s ease, visibility 0.4s ease;
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+
+/* Start screen: transparent so cinematic bg shows */
+#start-screen.overlay-screen {
+    background-color: transparent;
+    padding: 0;
 }
 
 .overlay-screen.hidden {
@@ -439,7 +945,7 @@ body {
 }
 
 /* ==========================================================================
-   GAME CANVAS — the Canvas API renders everything inside this element
+   GAME CANVAS â€” the Canvas API renders everything inside this element
    ========================================================================== */
 
 /* Game World Window */
@@ -452,7 +958,7 @@ body {
     background: #04020A;              /* fallback before first frame */
 }
 
-/* No #game-viewport or #game-world rules needed — Canvas replaces them */
+/* No #game-viewport or #game-world rules needed â€” Canvas replaces them */
 
 
 /* ==========================================================================

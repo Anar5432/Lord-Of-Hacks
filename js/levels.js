@@ -28,7 +28,7 @@ const LEVELS_CONFIG = {
             
             // Tower ruins above the ruined bridge (vertical platforms)
             { x: 1850, y: 60, width: 120, height: 20, type: "wooden-bridge" },  // top is y = 80
-            { x: 2000, y: 90, width: 100, height: 30, type: "stone-island" },   // top is y = 120
+            { x: 2000, y: 90, width: 100, height: 30, type: "shaking-platform" },   // top is y = 120
             { x: 2150, y: 70, width: 120, height: 20, type: "suspended-swing" }, // top is y = 90
             
             // Floating volcanic rock islands and chains section (varied heights)
@@ -39,7 +39,7 @@ const LEVELS_CONFIG = {
             // Mid-bridge before boss approach (top is y = 40)
             { x: 3200, y: 0, width: 600, height: 40, type: "stone" },
             // High pillars above mid-bridge
-            { x: 3350, y: 50, width: 110, height: 30, type: "stone-island" },  // top is y = 80
+            { x: 3350, y: 50, width: 110, height: 30, type: "shaking-platform" },  // top is y = 80
             { x: 3550, y: 90, width: 110, height: 30, type: "stone-island" }, // top is y = 120
             
             // Final lava gap before tower

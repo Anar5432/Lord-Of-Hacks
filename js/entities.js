@@ -58,10 +58,10 @@ class Player extends Entity {
     }
 
     setupStats() {
-        // Hobbit stats — design spec: 3-4 hits, slow fire rate
-        this.maxHealth     = 40;
-        this.damage        = 10;
-        this.shootCooldown = 1200; // 1 attack per 1.2 seconds
+        // Hobbit stats — design spec: 3-4 hits, slow fire rate (balanced for playable progression)
+        this.maxHealth     = 100; // More durable
+        this.damage        = 25;  // 2.5x stronger melee attacks
+        this.shootCooldown = 600; // 0.6s attack cooldown
         this.health = this.maxHealth;
     }
 
@@ -315,6 +315,19 @@ class Platform extends Entity {
         this.theme = theme;
         this.type = type;
         this.baseX = x;
+        this.originalX = x;
+        this.originalY = y;
+        this.shakeTimer = 0;
+        this.isFalling = false;
+        this.vy = 0;
+    }
+
+    reset() {
+        this.x = this.originalX;
+        this.y = this.originalY;
+        this.shakeTimer = 0;
+        this.isFalling = false;
+        this.vy = 0;
     }
 
     draw(ctx, cameraX) {
@@ -326,7 +339,15 @@ class Platform extends Entity {
         if (this.theme === 'mordor') {
             if (!Platform.stoneSprite) {
                 Platform.stoneSprite = new Image();
-                Platform.stoneSprite.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAAAYCAYAAABKtPtEAAABUUlEQVR4nO2XsW6DMBCGL9eiWiy8hpWqS5a8QZY8b5Y8BFsjFmbUiIUFIaE6lZEcIcvGNpjEVfwtto7Tfz58hw1AJBKJvDAblfFwON5kW5Zl0DQNXK8/sN1+Ql3XSsG+7yFJEmNglU6aptC2rVMCQoevjcfWcT6flLm+q4x8USJhDp+XZQmM/Q7BiqK428c+LvOpWHN0qqqa9NeBugfjAHIwk4/N/Fk6xhew2+1vWmd8G0ZKKSyFa10u34u1bHV0eaFLMN4CHNECS5Db6Vk6CP8cl0pSVQGaHHzvWGigyUEcab569h7Yo94SLTTtvjhbQ64Al7XJeSIEDiFkVX2EB8BveHPpus57C4yrAGXDGuiutyF8B9DGaa3+96k7VwvX3v1QEXmj+MqbRoGt/6N15+psKP2yqgBCPoYSy/PceG+Y+i1doi1gjAEietGKROC1+QOtuVSIkgQyogAAAABJRU5ErkJggg==";
+                Platform.stoneSprite.src = "data:image/png;base64,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";
+            }
+            if (!Platform.smallStoneSprite) {
+                Platform.smallStoneSprite = new Image();
+                Platform.smallStoneSprite.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAYCAYAAACbU/80AAAFa0lEQVR4nOVWW4scRRg91VV9menZ2Z1dyQYDZhEhwaAoERF80Rf1QRMV3xWFmAeN4OVvGP0fYvAPqH8gK4Hgi4EYE0k22Z3LzqW7qy8l56ueSVSE5Nkamp6urvou5/vOqQb+70OdOfOmc86haRo/oQJ/IYAK+KwQBMHqggICBWijwX1wQOMauTv++FzX8q6sKrimkX20r7jfcY0Tu84pmBs3/pCXnFwGopSB4k8BJjQIwxA6YEAMQkHrQNYWRSF3CU63xgHUdS12yqqEaxy01iunDDZQfj+DNadPv7B6yY1ZlqEsfUbMstvtIIljce7RUOBLrhsOh2J8fX0dcRxBBUpQWKJZt9kbrVFYi7qqYYyGMSGxlgAUF37x5VeOm2j08PAQeWZlQRRF6KZdb9zXR5Cgk/l8jjt3biNNU2xvb0sgREaCcJBAmdA3X1+UrefOn3eLxQJbW1v49qKfE5OffPqZW0jWFtZa5FmOxinAKYHVGCM1pzE61oGW+bIsMRoNJfvNzQHyvBBkmDEDYKBMSvbrAKPRCAzg6PZR9Hpr0MagtCXM/sEBsjxDXfvaMMtAaTgoMUDonPM94huNUJao6gqNYKiwyHJBhOulvo0PZDk4T+dM4u7dfYzGh9LkfDaEnc60IczeqSDA/3QozaJWDVRVFabTGebzmWQXRQnKspZ5gV451FUjJeF7zrNZ68ahk6RQgUZp2SON+DOzWSZd70g7XkqhqpvWoRMaCcFa51VpMRyOxWjAtdah203bjJXvKlIBWFGXmfJeVqRsi0rrQz114hlni7qlHhd7Ki27vmmYXSkBiAyIA4ey7Wqu0SZEaIzoR6B9jyz1YVkK36RaEObdzxmYJ3d2cOXKVZSVQxTFrRApuBpiiFnKg4gN0fEcD0ODpJOIIUJPh0Wey/s4SdDpdBDrWGxIpq2gCRoqkB6yNoc5depp3Lz5J8bjKdIeKZdIhISbNex2OgIrkciLTKhKXqdpD/1+H2EUSi1tYbG/f4B7+wcIwwi9Xk8oShFb6oLPnAJmMZ1OURSVp/f7H5xzV6/+CltWSNM1ya6uKsliY2NdsmDEbLzZbCbG6CRJkhVzuH44GmE0nEhTxnGMjY0B+v21VuJ9AKQvnZOWeZ75ADhee/0td/367+ivbyA0IbQK0FvrYTDYkLoWtkBR5KLv3qCHlfSVngFabTjEZDIVTSEK1AlPRTaikjVEUdjnGphlADs7x3Fn7zbybAYXJYjCWBjAg4XhC80aB6ONh5StIZ79HzKG4pL2ekK5yWSC6WwqGrN0TlRYVu5lcpGU74Fx5u133bXfrqGyjQRAY5TOKI6QFzmsLUWeTRT6zHmGUHKbRppLGrKBqKLAPBxKxuyTXpqKLTYukeOZEAT67wFwnJUgrsPmJeIkxlq/38qpb8xumsKwscjjlmL2gVOPTdZUFLMGe3t7UorBYIBO0sHWY1vQ2peO89SSfwXAceHC544HEmnD4/rWrVuIk444ZGOGUbQ6QUk7BsaTM4p92eqyhC1LkWe+O3LkiMDvm9dX3RYF8v8K4J/j1VfecKPRGIE24oSbamLd1p/o0EEYR7BFjvl0hkW2WFF5a3NTkJNAWzFafn+Yhwngueefxe7uLxiPD2GtP5REkJwvA1WQHU1aUVzms6kE1e3EmM3mQl8e1ay5rapl3B5FPOT48KOP3eXLu8iywjcgs8B92aZikglNXSKJQ5w4eRLHHj+GH3/6WYSr0+lK4zVtr4jkOx5IjzDOvvOeu3f3nsj18uOEg0HcP34bbA42cOn778T2iy+97A72h75EIdnD70X/0cLxUCVYjh8ueaOPMnaOP4HJeIKqsqIHXpb9NwPp+xdbWnADMy/erwAAAABJRU5ErkJggg==";
+            }
+            if (!Platform.shakingSprite) {
+                Platform.shakingSprite = new Image();
+                Platform.shakingSprite.src = "data:image/png;base64,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";
             }
             if (!Platform.woodSprite) {
                 Platform.woodSprite = new Image();
@@ -452,8 +473,68 @@ class Platform extends Entity {
                 drawChainLine(sx + 10, sy + 2, sx + 25, sy - 140);
                 drawChainLine(sx + W - 10, sy + 2, sx + W - 25, sy - 140);
             }
+            else if (this.type === 'stone-island') {
+                const img = Platform.smallStoneSprite;
+                const leftCapW = 8;
+                const rightCapW = 8;
+                const midSrcW = 16;
+
+                // Draw left sloped edge
+                ctx.drawImage(img, 0, 0, leftCapW, 24, sx, sy, leftCapW, H);
+
+                // Draw middle stone repeating
+                const midDestW = W - leftCapW - rightCapW;
+                let currentX = sx + leftCapW;
+                for (let mx = 0; mx < midDestW; mx += midSrcW) {
+                    const chunkW = Math.min(midSrcW, midDestW - mx);
+                    ctx.drawImage(img, leftCapW, 0, chunkW, 24, currentX, sy, chunkW, H);
+                    currentX += chunkW;
+                }
+
+                // Draw right sloped edge
+                ctx.drawImage(img, 24, 0, rightCapW, 24, sx + W - rightCapW, sy, rightCapW, H);
+
+                // Lava drips
+                const t = Date.now();
+                const lavaAlpha = 0.5 + Math.sin(t / 200) * 0.4;
+                ctx.fillStyle = `rgba(255, 80, 20, ${lavaAlpha})`;
+                const step = W / 3;
+                for (let i = 0; i < 3; i++) {
+                    const midX = sx + i * step + step / 2;
+                    const peakY = sy + H + (i % 2 === 0 ? 4 : 1);
+                    ctx.fillRect(midX - 1.5, peakY + ((t / 8) % 15), 3, 5);
+                }
+            }
+            else if (this.type === 'shaking-platform') {
+                let drawX = sx;
+                let drawY = sy;
+                if (this.shakeTimer > 0 && !this.isFalling) {
+                    drawX += (Math.random() - 0.5) * 4;
+                    drawY += (Math.random() - 0.5) * 4;
+                }
+
+                const img = Platform.shakingSprite;
+                const leftCapW = 8;
+                const rightCapW = 8;
+                const midSrcW = 48;
+
+                // Draw left cap
+                ctx.drawImage(img, 0, 0, leftCapW, 24, drawX, drawY, leftCapW, H);
+
+                // Draw middle tiling
+                const midDestW = W - leftCapW - rightCapW;
+                let currentX = drawX + leftCapW;
+                for (let mx = 0; mx < midDestW; mx += midSrcW) {
+                    const chunkW = Math.min(midSrcW, midDestW - mx);
+                    ctx.drawImage(img, leftCapW, 0, chunkW, 24, currentX, drawY, chunkW, H);
+                    currentX += chunkW;
+                }
+
+                // Draw right cap
+                ctx.drawImage(img, 56, 0, rightCapW, 24, drawX + W - rightCapW, drawY, rightCapW, H);
+            }
             else {
-                // Stone platforms: cliff-left, cliff-right, stone-island, stone (default)
+                // Stone platforms: cliff-left, cliff-right, stone (default)
                 const img = Platform.stoneSprite;
                 const leftCapW = 8;
                 const rightCapW = 8;
@@ -473,30 +554,6 @@ class Platform extends Entity {
 
                 // Draw right sloped edge
                 ctx.drawImage(img, 56, 0, rightCapW, 24, sx + W - rightCapW, sy, rightCapW, H);
-
-                // If it is a floating island, draw layered craggy bottom rocks
-                if (this.type === 'stone-island') {
-                    // Layer 1: medium crag
-                    const subW = Math.round(W * 0.7);
-                    const subX = sx + (W - subW) / 2;
-                    ctx.drawImage(img, leftCapW, 6, midSrcW, 14, subX, sy + H, subW, 14);
-
-                    // Layer 2: small crag
-                    const tinyW = Math.round(W * 0.4);
-                    const tinyX = sx + (W - tinyW) / 2;
-                    ctx.drawImage(img, leftCapW, 12, midSrcW, 10, tinyX, sy + H + 10, tinyW, 10);
-
-                    // Lava drips
-                    const t = Date.now();
-                    const lavaAlpha = 0.5 + Math.sin(t / 200) * 0.4;
-                    ctx.fillStyle = `rgba(255, 80, 20, ${lavaAlpha})`;
-                    const step = W / 3;
-                    for (let i = 0; i < 3; i++) {
-                        const midX = sx + i * step + step / 2;
-                        const peakY = sy + H + 18 + (i % 2 === 0 ? 6 : 2);
-                        ctx.fillRect(midX - 2, peakY + ((t / 8) % 15), 4, 5);
-                    }
-                }
             }
         }
         else {

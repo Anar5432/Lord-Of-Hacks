@@ -1,5 +1,5 @@
 // ==========================================================================
-// Lord of the Hacks — Game Engine (Canvas API)
+// Lord of the Hacks â€” Game Engine (Canvas API)
 // Handles: game loop, physics, AABB collisions, camera, input, rendering
 // ==========================================================================
 
@@ -94,7 +94,7 @@ class Game {
 
         if (window.audioManager) window.audioManager.playMelee();
 
-        // Spawn slash visual — placed in front of player
+        // Spawn slash visual â€” placed in front of player
         const slashX = p.direction === 1 ? p.x + p.width : p.x - 44;
         this.projectiles.push(new Projectile(slashX, p.y + 4, 0, 0, 'slash', 'player'));
 
@@ -202,7 +202,7 @@ class Game {
     }
 
     // -----------------------------------------------------------------------
-    // Update — physics, AI, collisions, interactions
+    // Update â€” physics, AI, collisions, interactions
     // -----------------------------------------------------------------------
     _update() {
         if (!this.player) return;
@@ -233,6 +233,21 @@ class Game {
                 const dx = pl.x - prevX;
                 if (p.isGrounded && p.activePlatform === pl) {
                     riderDeltaX = dx;
+                }
+            } else if (pl.type === 'shaking-platform') {
+                if (p.isGrounded && p.activePlatform === pl) {
+                    if (!pl.isFalling) {
+                        pl.shakeTimer++;
+                        if (pl.shakeTimer >= 70) {
+                            pl.isFalling = true;
+                            p.isGrounded = false;
+                            p.activePlatform = null;
+                        }
+                    }
+                }
+                if (pl.isFalling) {
+                    pl.vy += this.gravity;
+                    pl.y += pl.vy;
                 }
             }
         });
@@ -341,7 +356,7 @@ class Game {
                 for (let j = this.enemies.length - 1; j >= 0; j--) {
                     const e = this.enemies[j];
                     if (e.state !== 'death' && this._aabb(proj, e)) {
-                        e.health -= 5;
+                        e.health -= 15; // Increased from 5 to 15
                         this._onEnemyHit(e);
                         proj.alive = false;
                         break;
@@ -439,6 +454,7 @@ class Game {
     _resolveHorizontal() {
         const p = this.player;
         this.platforms.forEach(pl => {
+            if (pl.isFalling) return; // Skip collision if platform is falling
             if (!this._aabb(p, pl)) return;
             if (p.vx > 0) p.x = pl.x - p.width;
             else if (p.vx < 0) p.x = pl.x + pl.width;
@@ -449,15 +465,16 @@ class Game {
         const p = this.player;
         p.isGrounded = false;
         this.platforms.forEach(pl => {
+            if (pl.isFalling) return; // Skip collision if platform is falling
             if (!this._aabb(p, pl)) return;
             if (p.vy <= 0) {
-                // Falling — land on top
+                // Falling â€” land on top
                 p.y          = pl.y + pl.height;
                 p.vy         = 0;
                 p.isGrounded = true;
                 p.activePlatform = pl;
             } else {
-                // Rising — hit ceiling
+                // Rising â€” hit ceiling
                 p.y  = pl.y - p.height;
                 p.vy = 0;
             }
@@ -474,7 +491,7 @@ class Game {
     }
 
     // -----------------------------------------------------------------------
-    // Render — one clear then draw everything
+    // Render â€” one clear then draw everything
     // -----------------------------------------------------------------------
     _render() {
         const ctx = this.ctx;
@@ -684,22 +701,20 @@ class Game {
                 }
                 break;
             }
-
             case 'mordor': {
-                const camFar = this.cameraX * 0.1;
-                const camMid = this.cameraX * 0.35;
-                const camNear = this.cameraX * 0.70;
-                
-                // 1. SKY GRADIENT (Horizontal transition from deep ash-purple to blood-red as camera advances)
+                const camFar  = this.cameraX * 0.08;
+                const camMid  = this.cameraX * 0.30;
+                const camNear = this.cameraX * 0.65;
+
+                // ── 1. SKY GRADIENT — deep ash-purple to blood-red ──────────────────
                 const redFactor = Math.min(1.0, this.cameraX / 4000);
                 let r1 = Math.round(12 + redFactor * 28);
-                let g1 = Math.round(3 - redFactor * 2);
+                let g1 = Math.round(3);
                 let b1 = Math.round(14 - redFactor * 10);
                 let r2 = Math.round(45 + redFactor * 135);
-                let g2 = Math.round(5 + redFactor * 3);
-                let b2 = Math.round(5 + redFactor * 3);
-                
-                // Final Cinematic: check if boss is collapsing and transition sky to gold/blue
+                let g2 = Math.round(5);
+                let b2 = Math.round(5);
+
                 const boss = this.enemies.find(e => e.type === 'EyeOfSauron');
                 let collapseProgress = 0;
                 if (boss && boss.state === 'death') {
@@ -711,34 +726,76 @@ class Game {
                     g2 = Math.round(g2 * (1 - collapseProgress) + collapseProgress * 223);
                     b2 = Math.round(b2 * (1 - collapseProgress) + collapseProgress * 0);
                 }
-                
+
                 const sky = ctx.createLinearGradient(0, 0, 0, H);
-                sky.addColorStop(0, `rgb(${r1},${g1},${b1})`);
-                sky.addColorStop(1, `rgb(${r2},${g2},${b2})`);
+                sky.addColorStop(0,   `rgb(${r1},${g1},${b1})`);
+                sky.addColorStop(0.55,`rgb(${Math.round(r1*1.6)},${g1},${b1})`);
+                sky.addColorStop(1,   `rgb(${r2},${g2},${b2})`);
                 ctx.fillStyle = sky;
                 ctx.fillRect(0, 0, W, H);
 
-                // 2. LIGHTNING STORM EFFECT
+                // ── 2. BLOOD MOON ───────────────────────────────────────────────────
+                if (collapseProgress < 0.5) {
+                    const moonX = 620 - camFar * 0.4;
+                    const moonY = 58;
+                    const moonGrd = ctx.createRadialGradient(moonX, moonY, 4, moonX, moonY, 36);
+                    moonGrd.addColorStop(0,   `rgba(255,90,30,${0.9 - collapseProgress})`);
+                    moonGrd.addColorStop(0.5, `rgba(200,20,0,${0.55 - collapseProgress*0.4})`);
+                    moonGrd.addColorStop(1,   'rgba(120,0,0,0)');
+                    ctx.fillStyle = moonGrd;
+                    ctx.beginPath();
+                    ctx.arc(moonX, moonY, 36, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Moon core
+                    ctx.fillStyle = `rgba(255,120,50,${0.8 - collapseProgress})`;
+                    ctx.beginPath();
+                    ctx.arc(moonX, moonY, 18, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // ── 3. ASH CLOUD LAYERS (3 parallax layers, rolling left) ───────────
+                const ashSpeeds = [0.018, 0.028, 0.042];
+                const ashColors = [
+                    'rgba(18,8,8,0.55)',
+                    'rgba(25,10,5,0.45)',
+                    'rgba(35,12,4,0.35)'
+                ];
+                const ashYBands = [
+                    { y: 10,  maxH: 55 },
+                    { y: 30,  maxH: 70 },
+                    { y: 0,   maxH: 45 }
+                ];
+                for (let layer = 0; layer < 3; layer++) {
+                    ctx.fillStyle = ashColors[layer];
+                    const band = ashYBands[layer];
+                    for (let i = 0; i < 7; i++) {
+                        const cloudW = 180 + (i * 53 % 120);
+                        const cloudH = 30 + (i * 31 % band.maxH);
+                        // scroll time-based + small parallax per layer
+                        const cx2 = ((i * 230 - t * ashSpeeds[layer] + layer * 90) % (W + cloudW + 50) + W + cloudW + 50) % (W + cloudW + 50) - cloudW;
+                        const cy  = band.y + (i * 17 % 35) + Math.sin(t / 1800 + i + layer) * 8;
+                        ctx.beginPath();
+                        ctx.ellipse(cx2 + cloudW/2, cy + cloudH/2, cloudW/2, cloudH/2, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+
+                // ── 4. LIGHTNING ────────────────────────────────────────────────────
                 if (!this.lightningTimer) this.lightningTimer = 100;
                 if (this.lightningActive === undefined) this.lightningActive = false;
-                
                 this.lightningTimer--;
                 if (this.lightningTimer <= 0) {
                     this.lightningActive = Math.random() < 0.35;
-                    this.lightningTimer = 80 + Math.random() * 150; // trigger check every 1.5-3 seconds
+                    this.lightningTimer = 80 + Math.random() * 150;
                 }
-                
                 if (this.lightningActive && Math.floor(t / 70) % 2 === 0) {
-                    // Flash the background
-                    ctx.fillStyle = `rgba(255, 200, 200, ${0.15 + Math.random() * 0.2})`;
+                    ctx.fillStyle = `rgba(255,200,200,${0.12 + Math.random() * 0.18})`;
                     ctx.fillRect(0, 0, W, H);
-                    
-                    // Draw a lightning bolt
                     ctx.save();
-                    ctx.strokeStyle = 'rgba(255, 235, 235, 0.85)';
+                    ctx.strokeStyle = 'rgba(255,235,235,0.82)';
                     ctx.lineWidth = 2.5;
                     ctx.shadowColor = '#FF3A00';
-                    ctx.shadowBlur = 12;
+                    ctx.shadowBlur = 14;
                     ctx.beginPath();
                     let lx = 150 + (t % 500);
                     let ly = 0;
@@ -751,70 +808,92 @@ class Game {
                     ctx.stroke();
                     ctx.restore();
                 } else if (this.lightningActive && this.lightningTimer < 60) {
-                    // Turn off active flash state after a short burst
                     this.lightningActive = false;
                 }
 
-                // 3. FAR LAYER: ERUPTING MOUNT DOOM (left/middle background)
+                // ── 5. MOUNT DOOM (far layer) ───────────────────────────────────────
                 ctx.save();
                 const mDoomX = 1100 - camFar;
-                // Draw Mountain silhouette
-                ctx.fillStyle = '#080203';
+
+                // Mountain silhouette
+                ctx.fillStyle = '#050101';
                 ctx.beginPath();
-                ctx.moveTo(mDoomX - 220, H);
-                ctx.lineTo(mDoomX - 60, H - 170); // Crater rim left
-                ctx.lineTo(mDoomX + 60, H - 170); // Crater rim right
-                ctx.lineTo(mDoomX + 220, H);
+                ctx.moveTo(mDoomX - 280, H);
+                ctx.lineTo(mDoomX - 55, H - 185);
+                ctx.lineTo(mDoomX + 55, H - 185);
+                ctx.lineTo(mDoomX + 280, H);
                 ctx.fill();
-                
-                // Glowing crater lava
-                ctx.fillStyle = '#FF3C00';
-                ctx.shadowColor = '#FF3C00';
-                ctx.shadowBlur = 15;
+
+                // Lava horizon glow around mountain base
+                const mGrd = ctx.createRadialGradient(mDoomX, H, 0, mDoomX, H - 185, 280);
+                mGrd.addColorStop(0,   'rgba(255,60,0,0.22)');
+                mGrd.addColorStop(0.4, 'rgba(200,20,0,0.1)');
+                mGrd.addColorStop(1,   'rgba(0,0,0,0)');
+                ctx.fillStyle = mGrd;
+                ctx.fillRect(mDoomX - 290, H - 280, 580, 280);
+
+                // Glowing crater
+                const craterGrd = ctx.createRadialGradient(mDoomX, H - 185, 0, mDoomX, H - 185, 68);
+                craterGrd.addColorStop(0,   'rgba(255,200,50,0.95)');
+                craterGrd.addColorStop(0.25,'rgba(255,80,0,0.85)');
+                craterGrd.addColorStop(0.65,'rgba(200,20,0,0.4)');
+                craterGrd.addColorStop(1,   'rgba(0,0,0,0)');
+                ctx.fillStyle = craterGrd;
                 ctx.beginPath();
-                ctx.ellipse(mDoomX, H - 170, 60, 6, 0, 0, Math.PI * 2);
+                ctx.ellipse(mDoomX, H - 185, 68, 12, 0, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.shadowBlur = 0;
-                
-                // Lava flows running down mountain
-                ctx.strokeStyle = '#FF4500';
-                ctx.lineWidth = 2;
+
+                // Lava flows down the mountain
+                ctx.save();
+                ctx.strokeStyle = `rgba(255,${80 + Math.floor(Math.sin(t/300)*30)},0,0.85)`;
+                ctx.lineWidth = 3;
+                ctx.shadowColor = '#FF4500';
+                ctx.shadowBlur = 8;
                 ctx.beginPath();
-                ctx.moveTo(mDoomX - 25, H - 170);
-                ctx.quadraticCurveTo(mDoomX - 45, H - 100, mDoomX - 80, H);
-                ctx.moveTo(mDoomX + 15, H - 170);
-                ctx.quadraticCurveTo(mDoomX + 35, H - 110, mDoomX + 55, H);
+                ctx.moveTo(mDoomX - 22, H - 185);
+                ctx.bezierCurveTo(mDoomX - 38, H - 130, mDoomX - 60, H - 80, mDoomX - 100, H);
+                ctx.moveTo(mDoomX + 18, H - 185);
+                ctx.bezierCurveTo(mDoomX + 34, H - 120, mDoomX + 60, H - 75, mDoomX + 90, H);
                 ctx.stroke();
-                
-                // Erupting smoke billows
-                ctx.fillStyle = 'rgba(38, 18, 18, 0.72)';
-                for (let i = 0; i < 4; i++) {
-                    const sx = mDoomX + Math.sin(t / 600 + i) * 12;
-                    const sy = H - 180 - (i * 24) - ((t / 70) % 20);
-                    ctx.beginPath();
-                    ctx.arc(sx, sy, 18 + i * 6, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-                
-                // Lava sparks flying up
-                ctx.fillStyle = 'rgba(255, 90, 0, 0.9)';
-                for (let i = 0; i < 12; i++) {
-                    const spX = mDoomX + Math.sin(i * 97 + t * 0.006) * (20 + (i * 5) % 35);
-                    const spY = H - 180 - ((t * 0.07 + i * 40) % 100);
-                    ctx.fillRect(spX, spY, 2.5, 2.5);
-                }
                 ctx.restore();
 
-                // 4. MIDDLE LAYER: BARAD-DUR (Centered when cameraX reaches 4000)
-                // At cameraX = 4000, camMid = 1400. To center it on screen (X=400), tower position = 1800.
-                const towerX = 1800 - camMid;
-                const towerOffset = collapseProgress * 350;
-                
+                // Eruption smoke billows (bigger, darker)
+                for (let i = 0; i < 6; i++) {
+                    const smokeProg = ((t / 55 + i * 22) % 120) / 120;
+                    const smokeAlpha = 0.7 * (1 - smokeProg);
+                    const smokeSz   = (18 + i * 10) * (0.4 + smokeProg * 0.8);
+                    const smokeX    = mDoomX + Math.sin(t / 500 + i * 1.2) * (8 + i * 4);
+                    const smokeY    = H - 195 - smokeProg * (80 + i * 14);
+                    ctx.fillStyle   = `rgba(${22 + i * 4},${8 + i * 2},${5 + i},${smokeAlpha})`;
+                    ctx.beginPath();
+                    ctx.arc(smokeX, smokeY, smokeSz, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Lava sparks / eruption particles
                 ctx.save();
-                ctx.fillStyle = '#060307';
-                // Tower Base
+                ctx.shadowColor = '#FF6600';
+                ctx.shadowBlur = 6;
+                for (let i = 0; i < 20; i++) {
+                    const ang  = (i * 37 + t * 0.012) % (Math.PI * 2);
+                    const dist = 12 + (i * 7 % 30);
+                    const spLife = ((t * 0.09 + i * 28) % 100) / 100;
+                    const spX  = mDoomX + Math.cos(ang) * dist * (0.3 + spLife);
+                    const spY  = H - 185 - spLife * (60 + (i % 5) * 16);
+                    const spSz = 2.5 * (1 - spLife);
+                    ctx.fillStyle = `rgba(255,${100 + Math.floor(spLife * 155)},0,${0.9 * (1 - spLife)})`;
+                    ctx.fillRect(spX, spY, spSz, spSz);
+                }
+                ctx.restore();
+                ctx.restore();
+
+                // ── 6. BARAD-DÛR TOWER (mid layer) ─────────────────────────────────
+                const towerX      = 1800 - camMid;
+                const towerOffset = collapseProgress * 350;
+                ctx.save();
+                ctx.fillStyle = '#040206';
+
                 ctx.fillRect(towerX - 55, H - 350 + towerOffset, 110, 350);
-                // Tower Side spikes
                 ctx.beginPath();
                 ctx.moveTo(towerX - 90, H + towerOffset);
                 ctx.lineTo(towerX - 55, H - 230 + towerOffset);
@@ -825,20 +904,27 @@ class Game {
                 ctx.lineTo(towerX + 55, H - 230 + towerOffset);
                 ctx.lineTo(towerX + 55, H + towerOffset);
                 ctx.fill();
-                // Mid tower block
                 ctx.fillRect(towerX - 40, H - 410 + towerOffset, 80, 60);
-                // Crown horns / battlements
                 ctx.beginPath();
                 ctx.moveTo(towerX - 40, H - 410 + towerOffset);
-                ctx.lineTo(towerX - 50, H - 460 + towerOffset); // Left fork
+                ctx.lineTo(towerX - 50, H - 460 + towerOffset);
                 ctx.lineTo(towerX - 20, H - 410 + towerOffset);
                 ctx.lineTo(towerX + 20, H - 410 + towerOffset);
-                ctx.lineTo(towerX + 50, H - 460 + towerOffset); // Right fork
+                ctx.lineTo(towerX + 50, H - 460 + towerOffset);
                 ctx.lineTo(towerX + 40, H - 410 + towerOffset);
                 ctx.closePath();
                 ctx.fill();
-                
-                // Falling stone crumbles during collapse
+
+                // Glowing window slots on tower
+                ctx.fillStyle = `rgba(255,60,0,${0.5 + Math.sin(t/280)*0.2})`;
+                ctx.shadowColor = '#FF3000';
+                ctx.shadowBlur = 8;
+                for (let w = 0; w < 3; w++) {
+                    ctx.fillRect(towerX - 4, H - 280 - w * 40 + towerOffset, 8, 14);
+                }
+                ctx.shadowBlur = 0;
+
+                // Falling stones during collapse
                 if (collapseProgress > 0 && boss && boss.deathTimer > 0) {
                     ctx.fillStyle = '#060307';
                     for (let sIdx = 0; sIdx < 12; sIdx++) {
@@ -848,53 +934,60 @@ class Game {
                     }
                 }
 
-                // 5. THE EYE OF SAURON & SEARCHLIGHT (At top of Barad-dûr)
-                const eyeX = towerX;
-                const eyeY = H - 425 + towerOffset;
+                // ── 7. EYE OF SAURON + SEARCHLIGHT ──────────────────────────────────
+                const eyeX     = towerX;
+                const eyeY     = H - 425 + towerOffset;
                 const eyePulse = Math.sin(t / 220) * 3.5;
-                
-                // Skip drawing eye/searchlight if fully collapsed or exploding
+
                 if (collapseProgress < 0.9) {
                     if (collapseProgress > 0) {
-                        // Exploding eye expanding circles
-                        ctx.fillStyle = `rgba(255, ${150 + Math.floor(Math.random()*105)}, 200, ${1 - collapseProgress})`;
+                        ctx.fillStyle = `rgba(255,${150 + Math.floor(Math.random()*105)},200,${1 - collapseProgress})`;
                         ctx.beginPath();
                         ctx.arc(eyeX, eyeY, 15 + collapseProgress * 180, 0, Math.PI * 2);
                         ctx.fill();
                     } else {
-                        // Orange-red pupil glow
+                        // Eye outer glow
+                        const eyeOuter = ctx.createRadialGradient(eyeX, eyeY, 2, eyeX, eyeY, 35 + eyePulse);
+                        eyeOuter.addColorStop(0,   'rgba(255,150,0,0.9)');
+                        eyeOuter.addColorStop(0.35, 'rgba(230,30,0,0.55)');
+                        eyeOuter.addColorStop(1,    'rgba(180,0,0,0)');
+                        ctx.fillStyle = eyeOuter;
+                        ctx.beginPath();
+                        ctx.arc(eyeX, eyeY, 35 + eyePulse, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // Eye inner core
                         const eyeGrd = ctx.createRadialGradient(eyeX, eyeY, 1.5, eyeX, eyeY, 18 + eyePulse);
-                        eyeGrd.addColorStop(0, 'rgba(255, 120, 0, 1.0)');
-                        eyeGrd.addColorStop(0.4, 'rgba(230, 30, 0, 0.7)');
-                        eyeGrd.addColorStop(1, 'rgba(255, 0, 0, 0)');
+                        eyeGrd.addColorStop(0,   'rgba(255,200,50,1.0)');
+                        eyeGrd.addColorStop(0.4,  'rgba(255,60,0,0.85)');
+                        eyeGrd.addColorStop(1,    'rgba(255,0,0,0)');
                         ctx.fillStyle = eyeGrd;
                         ctx.beginPath();
                         ctx.arc(eyeX, eyeY, 22 + eyePulse, 0, Math.PI * 2);
                         ctx.fill();
-                        
-                        // Slit black center
-                        ctx.fillStyle = '#100000';
+
+                        // Slit pupil
+                        ctx.fillStyle = '#050000';
                         ctx.beginPath();
-                        ctx.ellipse(eyeX, eyeY, 2.2, 8, 0, 0, Math.PI * 2);
+                        ctx.ellipse(eyeX, eyeY, 2.5, 9, 0, 0, Math.PI * 2);
                         ctx.fill();
 
-                        // Sweeping Searchlight (only sweep if not dead/collapsing)
+                        // Sweeping searchlight beam (wider, brighter)
                         ctx.save();
-                        // Angled downwards, sweeping left-right
-                        const sweepAngle = Math.sin(t / 1400) * 0.32 + 0.35;
+                        const sweepAngle = Math.sin(t / 1200) * 0.45 + 0.4;
                         ctx.translate(eyeX, eyeY);
                         ctx.rotate(sweepAngle);
-                        
-                        const beamGrd = ctx.createLinearGradient(0, 0, 0, 550);
-                        beamGrd.addColorStop(0, 'rgba(255, 60, 0, 0.40)');
-                        beamGrd.addColorStop(0.5, 'rgba(255, 30, 0, 0.12)');
-                        beamGrd.addColorStop(1, 'rgba(255, 0, 0, 0)');
+                        const beamGrd = ctx.createLinearGradient(0, 0, 0, 600);
+                        beamGrd.addColorStop(0,   'rgba(255,80,0,0.50)');
+                        beamGrd.addColorStop(0.35, 'rgba(255,30,0,0.20)');
+                        beamGrd.addColorStop(0.7,  'rgba(255,0,0,0.06)');
+                        beamGrd.addColorStop(1,    'rgba(255,0,0,0)');
                         ctx.fillStyle = beamGrd;
                         ctx.beginPath();
-                        ctx.moveTo(-4, 0);
-                        ctx.lineTo(-65, 550);
-                        ctx.lineTo(65, 550);
-                        ctx.lineTo(4, 0);
+                        ctx.moveTo(-6, 0);
+                        ctx.lineTo(-90, 600);
+                        ctx.lineTo(90, 600);
+                        ctx.lineTo(6, 0);
                         ctx.closePath();
                         ctx.fill();
                         ctx.restore();
@@ -902,82 +995,120 @@ class Game {
                 }
                 ctx.restore();
 
-                // 6. MIDGROUND NOISE: Nazgûl flyer silhouettes
-                ctx.fillStyle = '#030105';
-                for (let n = 0; n < 2; n++) {
-                    const speed = 1.6 + n * 0.6;
-                    const nx = ((t * 0.04 * speed + n * 1400) % (4800 * 0.35)) - camMid;
-                    if (nx >= -60 && nx <= W + 60) {
-                        const ny = 70 + n * 50 + Math.sin(t / 320 + n) * 10;
-                        const flap = Math.sin(t / 130 + n) * 6;
+                // ── 8. NAZGÛL FLYERS ────────────────────────────────────────────────
+                ctx.fillStyle = '#020104';
+                for (let n = 0; n < 3; n++) {
+                    const speed = 1.4 + n * 0.55;
+                    const nx = ((t * 0.038 * speed + n * 1500) % (W * 4)) - camMid * 0.25;
+                    if (nx >= -70 && nx <= W + 70) {
+                        const ny   = 62 + n * 45 + Math.sin(t / 300 + n) * 12;
+                        const flap = Math.sin(t / 110 + n) * 8;
                         ctx.beginPath();
                         ctx.moveTo(nx, ny);
-                        ctx.lineTo(nx - 16, ny - 5 + flap);
-                        ctx.lineTo(nx - 6, ny + 1);
-                        ctx.lineTo(nx, ny + 4);
-                        ctx.lineTo(nx + 6, ny + 1);
-                        ctx.lineTo(nx + 16, ny - 5 + flap);
+                        ctx.lineTo(nx - 18, ny - 6 + flap);
+                        ctx.lineTo(nx - 7,  ny + 2);
+                        ctx.lineTo(nx,      ny + 5);
+                        ctx.lineTo(nx + 7,  ny + 2);
+                        ctx.lineTo(nx + 18, ny - 6 + flap);
                         ctx.lineTo(nx, ny);
                         ctx.fill();
                     }
                 }
 
-                // 7. NEAR LAYER: Background rock silhouettes & chains (cameraX * 0.70)
-                ctx.fillStyle = '#050206';
+                // ── 9. NEAR ROCK SILHOUETTES ────────────────────────────────────────
+                ctx.fillStyle = '#030105';
                 for (let k = 0; k < 12; k++) {
                     const kx = k * 450 - camNear;
                     if (kx >= -120 && kx <= W + 120) {
                         ctx.beginPath();
                         ctx.moveTo(kx - 90, H);
-                        ctx.lineTo(kx, H - 65);
+                        ctx.lineTo(kx,      H - 72);
                         ctx.lineTo(kx + 90, H);
                         ctx.fill();
                     }
                 }
-                
-                // Hanging background chains
-                ctx.strokeStyle = '#120E16';
+
+                // Hanging chains
+                ctx.strokeStyle = '#100C16';
                 ctx.lineWidth = 4;
                 for (let c = 0; c < 6; c++) {
-                    const cx = c * 850 - camNear;
-                    if (cx >= -220 && cx <= W + 220) {
+                    const cxc = c * 850 - camNear;
+                    if (cxc >= -220 && cxc <= W + 220) {
                         ctx.beginPath();
-                        ctx.moveTo(cx, 0);
-                        ctx.quadraticCurveTo(cx + 120, H * 0.40, cx + 240, 0);
+                        ctx.moveTo(cxc, 0);
+                        ctx.quadraticCurveTo(cxc + 120, H * 0.40, cxc + 240, 0);
                         ctx.stroke();
                     }
                 }
 
-                // 8. DYNAMIC PARTICLES: Drifting Ash & Fire Embers
-                ctx.fillStyle = 'rgba(255, 75, 0, 0.7)';
-                for (let i = 0; i < 35; i++) {
-                    const px = ((i * 137 - t * 0.045) % W + W) % W;
-                    const py = ((i * 61 + t * 0.055) % H);
-                    const size = 1.5 + (i % 3);
+                // ── 10. ANIMATED LAVA RIVER at ground level ─────────────────────────
+                // 3 sub-layers: deep glow, wave surface, bright crest highlights
+                const lavaPulse = 0.6 + Math.sin(t / 300) * 0.2;
+                const lavaDeep = ctx.createLinearGradient(0, H - 22, 0, H);
+                lavaDeep.addColorStop(0, `rgba(220,40,0,${lavaPulse * 0.7})`);
+                lavaDeep.addColorStop(1, `rgba(255,100,0,${lavaPulse})`);
+                ctx.fillStyle = lavaDeep;
+                ctx.fillRect(0, H - 22, W, 22);
+
+                // Wave surface shimmer
+                ctx.save();
+                ctx.globalAlpha = 0.55;
+                for (let lv = 0; lv < 12; lv++) {
+                    const waveX = ((lv * 90 + t * 0.04) % W);
+                    const waveH = 3 + Math.sin(t / 200 + lv) * 2;
+                    ctx.fillStyle = `rgba(255,${160 + lv * 5},30,0.7)`;
+                    ctx.fillRect(waveX, H - 22 - waveH, 30 + lv * 3, waveH);
+                }
+                ctx.globalAlpha = 1;
+                ctx.restore();
+
+                // ── 11. FLOATING FIRE EMBERS ────────────────────────────────────────
+                for (let i = 0; i < 45; i++) {
+                    const px    = ((i * 137 - t * 0.048) % W + W) % W;
+                    const py    = ((i * 61  + t * 0.060) % (H - 20));
+                    const size  = 1.5 + (i % 3) * 0.8;
+                    const alpha = 0.4 + (Math.sin(t / 300 + i) * 0.3);
+                    const hue   = 20 + (i % 5) * 6;
                     ctx.save();
+                    ctx.globalAlpha = alpha;
                     if (i % 3 === 0) {
-                        ctx.shadowColor = '#FF3C00';
-                        ctx.shadowBlur = 4;
+                        ctx.shadowColor = '#FF4500';
+                        ctx.shadowBlur  = 5;
                     }
-                    ctx.fillRect(px, py, size, size);
+                    ctx.fillStyle = `hsl(${hue},100%,60%)`;
+                    ctx.beginPath();
+                    ctx.arc(px, py, size, 0, Math.PI * 2);
+                    ctx.fill();
                     ctx.restore();
                 }
 
-                // 9. LAVA HEAT RADIAL GLOW (Atmospheric light at the bottom)
-                const heatA = 0.25 + Math.sin(t / 450) * 0.06;
-                const heatGrd = ctx.createLinearGradient(0, H - 90, 0, H);
+                // ── 12. LAVA HEAT GLOW at bottom ────────────────────────────────────
+                const heatA = 0.28 + Math.sin(t / 420) * 0.07;
+                const heatGrd = ctx.createLinearGradient(0, H - 110, 0, H);
                 heatGrd.addColorStop(0, 'transparent');
-                heatGrd.addColorStop(1, `rgba(255, 35, 0, ${heatA})`);
+                heatGrd.addColorStop(1, `rgba(255,40,0,${heatA})`);
                 ctx.fillStyle = heatGrd;
-                ctx.fillRect(0, H - 90, W, 90);
+                ctx.fillRect(0, H - 110, W, 110);
 
-                // 10. SCREEN RED TINT (Gets deeper hellish red as the player approaches Barad-dûr)
-                const tintOpacity = Math.min(0.40, (this.cameraX / 4000) * 0.40);
+                // Radial lava heat pools
+                for (let lp = 0; lp < 4; lp++) {
+                    const lpx = (lp * 280 - camNear * 0.3 + W * 0.1) % (W + 200) - 100;
+                    const lpGrd = ctx.createRadialGradient(lpx, H, 0, lpx, H, 80);
+                    lpGrd.addColorStop(0,   `rgba(255,80,0,${0.35 + Math.sin(t/500 + lp)*0.1})`);
+                    lpGrd.addColorStop(0.5, `rgba(180,20,0,0.12)`);
+                    lpGrd.addColorStop(1,   'transparent');
+                    ctx.fillStyle = lpGrd;
+                    ctx.fillRect(lpx - 80, H - 80, 160, 80);
+                }
+
+                // ── 13. RED SCREEN TINT (deepens near Barad-dûr) ────────────────────
+                const tintOpacity = Math.min(0.38, (this.cameraX / 4000) * 0.38);
                 if (tintOpacity > 0.01) {
-                    ctx.fillStyle = `rgba(210, 0, 0, ${tintOpacity})`;
+                    ctx.fillStyle = `rgba(210,0,0,${tintOpacity})`;
                     ctx.fillRect(0, 0, W, H);
                 }
                 break;
+            }
             }
         }
     }
@@ -995,9 +1126,9 @@ class Game {
         if (this.player && fill)
             fill.style.width = `${(this.player.health / this.player.maxHealth) * 100}%`;
         if (coins) coins.textContent = this.coins;
-        if (gems)  gems.textContent  = this.hasArkenstone ? '💎' : '-';
+        if (gems)  gems.textContent  = this.hasArkenstone ? 'ðŸ’Ž' : '-';
         if (level) level.textContent = this.currentLevel;
-        if (lives) lives.textContent = '❤️'.repeat(this.lives) || '💀';
+        if (lives) lives.textContent = 'â¤ï¸'.repeat(this.lives) || 'ðŸ’€';
     }
 
     playerDie() {
@@ -1020,6 +1151,11 @@ class Game {
         p.vy = 0;
         p.invincibleTimer = 120; // 2 seconds of invincibility
         p.isInvisible = false;   // disable invisibility on respawn
+
+        // Reset all platforms (for shaking/falling platforms)
+        this.platforms.forEach(pl => {
+            if (typeof pl.reset === 'function') pl.reset();
+        });
         
         // Move back horizontally (one step back)
         let targetX = Math.max(120, p.x - 200);
@@ -1029,7 +1165,7 @@ class Game {
         let minDist = Infinity;
         
         this.platforms.forEach(pl => {
-            if (pl.type === 'broken-bridge') return; // Skip unsafe broken bridges
+            if (pl.type === 'broken-bridge' || pl.type === 'shaking-platform') return; // Skip unsafe platforms
             const dist = Math.abs(pl.x + pl.width / 2 - targetX);
             if (dist < minDist) {
                 minDist = dist;
@@ -1093,7 +1229,7 @@ class Game {
         if (vc) vc.textContent = this.coins;
         if (vm) vm.textContent = LEVELS_CONFIG[nextLevel]
             ? `Level ${this.currentLevel} complete! The next journey awaits...`
-            : '🎉 You have defeated the Eye of Sauron! Middle-earth is saved!';
+            : 'ðŸŽ‰ You have defeated the Eye of Sauron! Middle-earth is saved!';
 
         const nBtn = document.getElementById('next-level-button');
         if (nBtn) nBtn.style.display = LEVELS_CONFIG[nextLevel] ? '' : 'none';
@@ -1103,4 +1239,4 @@ class Game {
     }
 }
 
-// Export singleton — main.js constructs and stores this
+// Export singleton â€” main.js constructs and stores this
